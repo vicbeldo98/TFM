@@ -11,6 +11,8 @@ conda install pip
 
 conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
 
+pip install markupsafe==2.0.1
+
 ~/anaconda3/envs/my-torch/bin/pip install torch-geometric==2.0.3 (da errores pero funciona)
 
 ~/anaconda3/envs/my-torch/bin/pip install torch-sparse
