@@ -1,10 +1,22 @@
 # TFM
 Research on how to build a GNN for recommendation
 
-#[Dataset](https://www.kaggle.com/datasets/grouplens/movielens-20m-dataset)
-
-The datasets describe ratings and free-text tagging activities from MovieLens, a movie recommendation service. It contains 20000263 ratings and 465564 tag applications across 27278 movies. These data were created by 138493 users between January 09, 1995 and March 31, 2015. This dataset was generated on October 17, 2016.
-
-Users were selected at random for inclusion. All selected users had rated at least 20 movies.
-
 # Environment
+
+conda create -n my-torch python=3.8 -y
+
+conda activate my-torch
+
+conda install pip
+
+conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
+
+~/anaconda3/envs/my-torch/bin/pip install torch-geometric==2.0.3 (da errores pero funciona)
+
+~/anaconda3/envs/my-torch/bin/pip install torch-sparse
+
+~/anaconda3/envs/my-torch/bin/pip install torch-scatter
+
+conda install -c conda-forge huggingface_hub==0.2.1
+
+conda install -c conda-forge sentence-transformers
