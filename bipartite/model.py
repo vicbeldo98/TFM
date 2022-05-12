@@ -4,12 +4,13 @@ import torch.nn.functional as F
 import torch_geometric.transforms as T
 from torch_geometric.nn import SAGEConv, to_hetero
 from pyg_dataset import MovieGraph
+import matplotlib.pyplot as plt
 
 #   TODO: IMPRIMIR GRÁFICA DEL ENTRENAMIENTO
 
-MODEL_PATH = '/home/victoria/Desktop/TFM/models/bipartite/sageconv'
+MODEL_PATH = '../models/bipartite/sageconv'
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-dataset = MovieGraph(root='/home/victoria/Desktop/TFM/data')
+dataset = MovieGraph(root='../data')
 data = dataset[0].to(device)
 
 # Add user node features for message passing:
@@ -29,6 +30,7 @@ train_data, val_data, test_data = T.RandomLinkSplit(
     edge_types=[('user', 'rates', 'movie')],
     rev_edge_types=[('movie', 'rev_rates', 'user')],
 )(data)
+
 
 # We have an unbalanced dataset with many labels for rating 3 and 4, and very few for 0 and 1. Therefore we use a weighted MSE loss.
 # Count the frequency of each value in an array of non-negative ints: https://pytorch.org/docs/stable/generated/torch.bincount.html
@@ -120,17 +122,29 @@ def test(data):
     rmse = F.mse_loss(pred, target).sqrt()
     return float(rmse)
 
+train_rmse_list = []
+val_rmse_list = []
+test_rsme_list = []
 
 def main():
-    for epoch in range(1, 101):
+    for epoch in range(1, 51):
         loss = train()
         train_rmse = test(train_data)
+        train_rmse_list.append(train_rmse)
         val_rmse = test(val_data)
+        val_rmse_list.append(val_rmse)
         test_rmse = test(test_data)
+        test_rsme_list.append(test_rmse)
         lr = optimizer.state_dict()['param_groups'][0]['lr']
         print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Train: {train_rmse:.4f}, Val: {val_rmse:.4f}, Test: {test_rmse:.4f}, LR: {lr:.10f}')
 
     torch.save(model.state_dict(), MODEL_PATH)
+
+    plt.plot(range(1,51), train_rmse_list, label="train rmse")
+    plt.plot(range(1,51), val_rmse_list, label="val rmse")
+    plt.plot(range(1,51), test_rsme_list, label="test rmse")
+    plt.legend(loc="upper left")
+    plt.show()
 
 
 main()
