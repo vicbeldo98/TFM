@@ -1,7 +1,7 @@
 import torch
 from torch.nn import Linear
-from torch_geometric.nn import GraphConv
 from torch_geometric.nn import MessagePassing
+from split_data import split_data
 
 from GSO import correlation_matrix
 from MSELoss import movieMSELoss
@@ -28,9 +28,9 @@ print("Number of movies: " + str(len(movie_mapping.keys())))
 print("Number of ratings: " + str(df_ratings.shape[0]))
 
 permutation = np.random.RandomState(seed=42).permutation(np.arange(nTotal))
-nTrain = int(np.ceil(TRAIN_SPLIT*nTotal))
+nTrain = int(np.ceil(TRAIN_SPLIT * nTotal))
 idxTrain = permutation[0:nTrain]
-nTest = nTotal-nTrain
+nTest = nTotal - nTrain
 idxTest = permutation[nTrain:nTotal]
 print("Number of signals to train: " + str(nTrain))
 print("Number of signals to test: " + str(nTest))
@@ -53,6 +53,7 @@ print("xTrain: " + str(xTrain.shape))
 print("yTrain: " + str(yTrain.shape))
 print("xTest: " + str(xTest.shape))
 print("yTest: " + str(yTest.shape))
+
 
 class MyConv(MessagePassing):
     def __init__(self):
@@ -80,8 +81,8 @@ class Encoder(torch.nn.Module):
 
     def forward(self, x, edge_index, edge_weights):
         x = self.conv1(x, edge_index, edge_weights).relu()
-        #x = self.conv2(x, edge_index, edge_weights)
-        #x = self.conv3(x, edge_index, edge_weights)
+        #   x = self.conv2(x, edge_index, edge_weights)
+        #   x = self.conv3(x, edge_index, edge_weights)
         return x
 
 
@@ -100,12 +101,13 @@ class Model(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.encoder = Encoder()
-        #self.decoder = Decoder()
+        #   self.decoder = Decoder()
 
     def forward(self, x_dict, edge_index_dict, edge_label_index):
         z_dict = self.encoder(x_dict, edge_index_dict, edge_label_index)
-        #z_dict = self.decoder(z_dict)
+        #   z_dict = self.decoder(z_dict)
         return z_dict
+
 
 model = Model()
 
@@ -148,8 +150,4 @@ for epoch in range(1, 101):
     test_rmse = test()
     lr = optimizer.state_dict()['param_groups'][0]['lr']
     if epoch % 10 == 0:
-        print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Test: {test_rmse:.4f}, LR: {lr:.10f}') 
-
-
-
-
+        print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Test: {test_rmse:.4f}, LR: {lr:.10f}')
