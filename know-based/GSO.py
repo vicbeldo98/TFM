@@ -1,6 +1,7 @@
 import time
 import numpy as np
-
+import torch
+import scipy
 
 # Construct adyacency matrix
 def correlation_matrix(X, idxTrain, knn, N_movies, N_users):
@@ -40,7 +41,7 @@ def correlation_matrix(X, idxTrain, knn, N_movies, N_users):
     W[W < thresholdMatrix] = 0
 
     # Normalizing by eigenvalue with largest magnitude
-    E, V = np.linalg.eig(W)
+    E, V = scipy.sparse.linalg.eigs(W)
     W = W/np.max(np.abs(E))
     end = time.time()
     time_spent = end - start

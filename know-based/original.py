@@ -77,11 +77,11 @@ class Encoder(torch.nn.Module):
         super().__init__()
         self.conv1 = MyConv()
         self.conv2 = MyConv()
-        self.conv3 = MyConv()
+        # self.conv3 = MyConv()
 
     def forward(self, x, edge_index, edge_weights):
         x = self.conv1(x, edge_index, edge_weights).relu()
-        #   x = self.conv2(x, edge_index, edge_weights)
+        x = self.conv2(x, edge_index, edge_weights)
         #   x = self.conv3(x, edge_index, edge_weights)
         return x
 

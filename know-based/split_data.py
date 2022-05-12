@@ -1,3 +1,6 @@
+import numpy as np
+import torch
+
 def split_data(X, idxTrain, idxTest, idxMovie):
     xTrain = X[idxTrain, :]
     idx = np.argwhere(xTrain[:, idxMovie] > 0).squeeze()
