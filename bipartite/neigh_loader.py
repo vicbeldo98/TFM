@@ -1,3 +1,4 @@
+from random import shuffle
 import numpy as np
 from torch_geometric.nn import MessagePassing
 import torch
@@ -55,16 +56,23 @@ train_data, val_data, test_data = T.RandomLinkSplit(
     rev_edge_types=[('movie', 'rev_rates', 'user')],
 )(data)
 
-print(type(train_data[('user', 'rates', 'movie')].edge_label_index))
-print(train_data[('user', 'rates', 'movie')].edge_label)
-print(train_data.edge_types)
+
+'''
+More specifically, this loader first selects a sample of edges from the
+set of input edges :obj:`edge_label_index` (which may or not be edges in
+the original graph) and then constructs a subgraph from all the nodes
+present in this list by sampling :obj:`num_neighbors` neighbors in each
+iteration.
+'''
 loader = LinkNeighborLoader(
     train_data, 
-    num_neighbors={'user':[-1, -1, -1, -1], 'movie':[-1, -1, -1, -1, -1]},
-    edge_label_index=train_data[('user', 'rates', 'movie')].edge_label_index.tolist(),
+    num_neighbors=[-1]*2,
+    edge_label_index=(('user', 'rates', 'movie'), train_data[('user', 'rates', 'movie')].edge_label_index),
     edge_label=train_data[('user', 'rates', 'movie')].edge_label,
-    batch_size=1
+    batch_size=3, 
+    shuffle=True
 )
 
 sampled_data = next(iter(loader))
+print(train_data)
 print(sampled_data)
