@@ -5,17 +5,26 @@ import torch_geometric.transforms as T
 from torch_geometric.nn import SAGEConv, to_hetero
 from pyg_dataset import MovieGraph
 import matplotlib.pyplot as plt
+from scipy.sparse import identity
 
-#   TODO: IMPRIMIR GRÁFICA DEL ENTRENAMIENTO
 
 MODEL_PATH = '../models/bipartite/sageconv'
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-dataset = MovieGraph(root='../data')
+dataset = MovieGraph(root='../data', small=False)
 data = dataset[0].to(device)
 
+
 # Add user node features for message passing:
-data['user'].x = torch.eye(data['user'].num_nodes, device=device)
-del data['user'].num_nodes
+# Returns the identity matrix as a sparse matrix as there are more than 2 million users
+size = data['user'].num_nodes
+indices = torch.arange(0, size).long().unsqueeze(0).expand(2, size)
+values = torch.tensor(1.0).expand(size)
+cls = getattr(torch.sparse, values.type().split(".")[-1])
+
+# User has its initial embeddings
+data['user'].x = cls(indices, values, torch.Size([size, size])) 
+
+#del data['user'].num_nodes
 
 # Add a reverse ('movie', 'rev_rates', 'user') relation for message passing:
 data = T.ToUndirected()(data)
@@ -85,9 +94,23 @@ class Model(torch.nn.Module):
 
 
 model = Model(hidden_channels=32).to(device)
+print(train_data)
+
+from pytorch_geometric.torch_geometric.loader import LinkNeighborLoader
+
+loader = LinkNeighborLoader(
+    train_data, 
+    num_neighbors={'':[-1], '':[-1]},
+    edge_label_index=train_data,
+    edge_label=train_data,
+    batch_size=128
+)
+
+sampled_data = next(iter(loader))
+print(sampled_data)
 
 # Due to lazy initialization, we need to run one model step so the number of parameters can be inferred:
-with torch.no_grad():
+'''with torch.no_grad():
     model.encoder(train_data.x_dict, train_data.edge_index_dict)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
@@ -98,11 +121,10 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
 def train():
     model.train()
     optimizer.zero_grad()
-    '''
-    train_data.x_dict = diccionario que contiene los embeddings iniciales tanto de los usuarios como de las peliculas
-    train_data.edge_index_dict = diccionario que contiene las conexiones entre los nodos (contiene los tipos de conexiones)
-    train_data['user', 'movie'].edge_label_index = diccionario que contiene las conexiones entre los nodos (contiene los tipos de conexiones)
-    '''
+
+    #train_data.x_dict = diccionario que contiene los embeddings iniciales tanto de los usuarios como de las peliculas
+    #train_data.edge_index_dict = diccionario que contiene las conexiones entre los nodos (contiene los tipos de conexiones)
+    #train_data['user', 'movie'].edge_label_index = diccionario que contiene las conexiones entre los nodos (contiene los tipos de conexiones)
 
     pred = model(train_data.x_dict, train_data.edge_index_dict, train_data['user', 'movie'].edge_label_index)
     target = train_data['user', 'movie'].edge_label
@@ -147,4 +169,4 @@ def main():
     plt.show()
 
 
-main()
+main()'''
