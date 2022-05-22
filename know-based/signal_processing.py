@@ -1,9 +1,10 @@
 import torch
 from torch.nn import Linear
 from torch_geometric.nn import MessagePassing
-from split_data import original_split_data
+from split_data import split_data
+import math
 
-from GSO import original_correlation_matrix
+from GSO import correlation_matrix
 from MSELoss import movieMSELoss
 
 import pandas as pd
@@ -43,8 +44,8 @@ X = np.zeros((N_users, N_movies))
 for idx, row in df_ratings.iterrows():
     X[int(row["userId"]), int(row["movieId"])] = row["rating"]
 
-edge_index, edge_weights = original_correlation_matrix(X, idxTrain, KNN)
-xTrain, yTrain, xTest, yTest = original_split_data(X, idxTrain, idxTest, TARGET_MOVIES)
+edge_index, edge_weights = correlation_matrix(X, idxTrain, KNN, N_movies, N_users)
+xTrain, yTrain, xTest, yTest = split_data(X, idxTrain, idxTest, TARGET_MOVIES)
 nTrain = xTrain.shape[0]
 nTest = xTest.shape[0]
 print("Number of training samples: " + str(nTrain))
@@ -53,51 +54,66 @@ print("xTrain: " + str(xTrain.shape))
 print("yTrain: " + str(yTrain.shape))
 print("xTest: " + str(xTest.shape))
 print("yTest: " + str(yTest.shape))
-print("edge_index: " + str(edge_index.shape))
-print("edge_weights: " + str(edge_weights.shape))
 
 
 class MyConv(MessagePassing):
-    def __init__(self):
+    def __init__(self, in_features=1, out_features=64, K=5):
         super().__init__(aggr='add')
-        self.K = 5
-        self.weight = torch.nn.Parameter(torch.Tensor(self.K))
+        self.K = K
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight = torch.nn.Parameter(torch.Tensor(self.out_features, self.K, self.in_features))
+        #TODO: ADD BIASself.bias = nn.parameter.Parameter(torch.Tensor(F, 1))
         self.reset_parameters()
 
     def reset_parameters(self):
-        self.weight.data.fill_(1)
+        stdv = 1. / math.sqrt(self.in_features * self.K)
+        self.weight.data.uniform_(-stdv, stdv)
+        '''if self.bias is not None:
+            self.bias.data.uniform_(-stdv, stdv)'''
 
     def forward(self, x, edge_index, edge_weight):
-        for k in range(self.K):
-            x = self.weight[k] * self.propagate(edge_index, x=x, edge_weight=edge_weight)
-        print(x.shape)
-        return x
+        # conv dimensions == B * F_in * K * N
+        conv = x.permute(1, 0).reshape([-1, self.in_features, 1, N_movies])
+
+        for k in range(1, self.K):
+            x = self.propagate(edge_index, x=x, edge_weight=edge_weight)
+            x_aux = x.permute(1, 0).reshape([-1, self.in_features, 1, N_movies])
+            conv = torch.cat((conv, x_aux), dim=2)
+
+        # Actually multiply by the parameters
+        # Reshape conv must be KG x F ===> order to B x N_movies x K x in_features and  reshape to B x N x (K*in_features)
+        reshaped_conv = conv.permute(0, 3, 2, 1).reshape([-1, N_movies, self.K*self.in_features])
+
+        # h convert KG x F
+        h = self.weight.reshape([self.out_features, self.K*self.in_features]).permute(1, 0)
+
+        y = torch.matmul(reshaped_conv, h)
+        return y
 
     def message(self, x_j, edge_weight):
-        return edge_weight.view(-1, 1) * x_j
+        return x_j * edge_weight.view(-1, 1)
 
 
 class Encoder(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.conv1 = MyConv()
-        self.conv2 = MyConv()
 
     def forward(self, x, edge_index, edge_weights):
         x = self.conv1(x, edge_index, edge_weights).relu()
-        x = self.conv2(x, edge_index, edge_weights)
         return x
 
 
 class Decoder(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, out_features=64, dim_readout=1):
         super().__init__()
-        self.lin1 = Linear(2830, 2830)
+        self.lin1 = Linear(out_features, dim_readout)
 
     def forward(self, z):
-        z = z.t()
         z = self.lin1(z)
-        return z.view(-1, 1)
+        z = z.reshape(-1, N_movies).permute(1,0)
+        return z
 
 
 class Model(torch.nn.Module):
@@ -107,8 +123,8 @@ class Model(torch.nn.Module):
         self.decoder = Decoder()
 
     def forward(self, x_dict, edge_index_dict, edge_label_index):
-        z_dict = self.encoder(x_dict, edge_index_dict, edge_label_index)
-        z_dict = self.decoder(z_dict)
+        y = self.encoder(x_dict, edge_index_dict, edge_label_index)
+        z_dict = self.decoder(y)
         return z_dict
 
 
@@ -117,9 +133,13 @@ model = Model()
 with torch.no_grad():
     model.encoder(xTrain, edge_index, edge_weights)
 
-'''optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
-                                                       patience=20)
+                                                       patience=5)
+
+print("data: " + str(xTrain.shape))
+print("edge_index: " + str(edge_index.shape))
+print("edge_weights: " + str(edge_weights.shape))
 
 
 def train():
@@ -144,10 +164,9 @@ def test():
     return float(rmse)
 
 
-for epoch in range(1, 101):
+for epoch in range(1, 401):
     loss = train()
     test_rmse = test()
     lr = optimizer.state_dict()['param_groups'][0]['lr']
     if epoch % 10 == 0:
         print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Test: {test_rmse:.4f}, LR: {lr:.10f}')
-'''
