@@ -1,20 +1,25 @@
+# torch related libraries
 import torch
 from torch.nn import Linear
 from torch_geometric.nn import MessagePassing
-from split_data import split_data
-import math
-import os
 
+# functionalities
+from split_data import split_data
 from GSO import correlation_matrix
 from MSELoss import movieMSELoss
 
+# other needed libraries
 import pandas as pd
 import numpy as np
 import pickle
+import math
+import os
+import matplotlib.pyplot as plt
 
-TARGET_MOVIES = 257
+TARGET_MOVIES = [i for i in range(9724)]   # 257
 KNN = 40
 TRAIN_SPLIT = 0.85
+N_EPOCHS = 201
 
 # Preprocess data
 df_ratings = pd.read_csv("../data/raw/ml-latest-small/ratings.csv")
@@ -57,6 +62,7 @@ file_to_read.close()
 edge_index, edge_weights = data['edge_index'], data['edge_weights']
 
 xTrain, yTrain, xTest, yTest = split_data(X, idxTrain, idxTest, TARGET_MOVIES)
+
 nTrain = xTrain.shape[0]
 nTest = xTest.shape[0]
 print("Number of training samples: " + str(nTrain))
@@ -74,14 +80,14 @@ class MyConv(MessagePassing):
         self.in_features = in_features
         self.out_features = out_features
         self.weight = torch.nn.Parameter(torch.Tensor(self.out_features, self.K, self.in_features))
-        #TODO: ADD BIASself.bias = nn.parameter.Parameter(torch.Tensor(F, 1))
+        self.bias = torch.nn.parameter.Parameter(torch.Tensor(self.out_features))
         self.reset_parameters()
 
     def reset_parameters(self):
         stdv = 1. / math.sqrt(self.in_features * self.K)
         self.weight.data.uniform_(-stdv, stdv)
-        '''if self.bias is not None:
-            self.bias.data.uniform_(-stdv, stdv)'''
+        if self.bias is not None:
+            self.bias.data.uniform_(-stdv, stdv)
 
     def forward(self, x, edge_index, edge_weight):
         # conv dimensions == B * F_in * K * N
@@ -100,6 +106,8 @@ class MyConv(MessagePassing):
         h = self.weight.reshape([self.out_features, self.K*self.in_features]).permute(1, 0)
 
         y = torch.matmul(reshaped_conv, h)
+        if self.bias is not None:
+            y = y + self.bias
         return y
 
     def message(self, x_j, edge_weight):
@@ -173,18 +181,23 @@ def eval(x, y):
 
 best_model_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models/gps_pearson.pth")
 best_test_accuracy = float('inf')
+train_history = []
+test_history = []
 
-for epoch in range(1, 401):
+for epoch in range(1, N_EPOCHS):
     train_rmse = train_step()
+    train_history.append(train_rmse)
     test_rmse = eval(xTest, yTest)
+    test_history.append(test_rmse)
     scheduler.step(test_rmse)
 
     if test_rmse < best_test_accuracy:
+        best_test_accuracy = test_rmse
         torch.save(model, best_model_path)
 
     lr = optimizer.state_dict()['param_groups'][0]['lr']
-    if epoch % 10 == 0:
-        print(f'Epoch: {epoch:03d}, Train_rmse: {train_rmse:.4f}, Test_rmse: {test_rmse:.4f}, LR: {lr:.10f}')
+    #if epoch % 10 == 0:
+    print(f'Epoch: {epoch:03d}, Train_rmse: {train_rmse:.4f}, Test_rmse: {test_rmse:.4f}, LR: {lr:.10f}')
 
 print("Finished trainning...Evaluating best model")
 
@@ -194,4 +207,9 @@ test_rmse = eval(xTest, yTest)
 print(f"Best model has train RMSE: {train_rmse}")
 print(f"Best model has test RMSE: {test_rmse}")
 
+x_axis = list(range(1,N_EPOCHS,1))
 
+plt.plot(x_axis, train_history, label = "Train RMSE")
+plt.plot(x_axis, test_history, label = "Test RMSE")
+plt.legend()
+plt.show()
