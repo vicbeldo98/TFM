@@ -3,12 +3,14 @@ from torch.nn import Linear
 from torch_geometric.nn import MessagePassing
 from split_data import split_data
 import math
+import os
 
 from GSO import correlation_matrix
 from MSELoss import movieMSELoss
 
 import pandas as pd
 import numpy as np
+import pickle
 
 TARGET_MOVIES = 257
 KNN = 40
@@ -44,7 +46,16 @@ X = np.zeros((N_users, N_movies))
 for idx, row in df_ratings.iterrows():
     X[int(row["userId"]), int(row["movieId"])] = row["rating"]
 
-edge_index, edge_weights = correlation_matrix(X, idxTrain, KNN, N_movies, N_users)
+GSO_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "precomputed_GSO/pearson_correlation.mat")
+if not os.path.exists(GSO_filepath):
+    correlation_matrix(X, idxTrain, KNN, N_movies, GSO_filepath)
+
+file_to_read = open(GSO_filepath, 'rb')
+data = pickle.load(file_to_read)
+file_to_read.close()
+
+edge_index, edge_weights = data['edge_index'], data['edge_weights']
+
 xTrain, yTrain, xTest, yTest = split_data(X, idxTrain, idxTest, TARGET_MOVIES)
 nTrain = xTrain.shape[0]
 nTest = xTest.shape[0]
@@ -134,39 +145,53 @@ with torch.no_grad():
     model.encoder(xTrain, edge_index, edge_weights)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
-                                                       patience=5)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience=20)
 
 print("data: " + str(xTrain.shape))
 print("edge_index: " + str(edge_index.shape))
 print("edge_weights: " + str(edge_weights.shape))
 
 
-def train():
+def train_step():
     model.train()
     optimizer.zero_grad()
     pred = model(xTrain, edge_index, edge_weights)
     target = yTrain
     loss = movieMSELoss(pred, target, TARGET_MOVIES)
     loss.backward()
-    scheduler.step(loss)
     optimizer.step()
     return float(loss)
 
 
 @torch.no_grad()
-def test():
+def eval(x, y):
     model.eval()
-    pred = model(xTest, edge_index, edge_weights)
+    pred = model(x, edge_index, edge_weights)
     pred = pred.clamp(min=0, max=5)
-    target = yTest
-    rmse = movieMSELoss(pred, target, TARGET_MOVIES)
+    rmse = movieMSELoss(pred, y, TARGET_MOVIES)
     return float(rmse)
 
+best_model_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models/gps_pearson.pth")
+best_test_accuracy = float('inf')
 
 for epoch in range(1, 401):
-    loss = train()
-    test_rmse = test()
+    train_rmse = train_step()
+    test_rmse = eval(xTest, yTest)
+    scheduler.step(test_rmse)
+
+    if test_rmse < best_test_accuracy:
+        torch.save(model, best_model_path)
+
     lr = optimizer.state_dict()['param_groups'][0]['lr']
     if epoch % 10 == 0:
-        print(f'Epoch: {epoch:03d}, Loss: {loss:.4f}, Test: {test_rmse:.4f}, LR: {lr:.10f}')
+        print(f'Epoch: {epoch:03d}, Train_rmse: {train_rmse:.4f}, Test_rmse: {test_rmse:.4f}, LR: {lr:.10f}')
+
+print("Finished trainning...Evaluating best model")
+
+model = torch.load(best_model_path)
+train_rmse = eval(xTrain, yTrain)
+test_rmse = eval(xTest, yTest)
+print(f"Best model has train RMSE: {train_rmse}")
+print(f"Best model has test RMSE: {test_rmse}")
+
+

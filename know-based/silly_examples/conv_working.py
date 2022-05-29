@@ -16,10 +16,16 @@ class MyConv(MessagePassing):
         return x
 
     def message(self, x_j, edge_weight):
+        print(x_j)
+        print(edge_weight)
+        print(edge_weight.view(-1, 1))
+        print(edge_weight.view(-1, 1).shape)
+        print(x_j * edge_weight.view(-1, 1))
         return  x_j * edge_weight.view(-1, 1)
 
 conv = MyConv()
 with torch.no_grad():
+    print(x)
     new_x = conv(x, edge_index, edge_weights)
     print(new_x)
 
