@@ -1,10 +1,13 @@
+from fileinput import filename
 import time
 import numpy as np
 import torch
+import pickle
 import scipy
+import pickle
 
 # Construct adyacency matrix
-def correlation_matrix(X, idxTrain, knn, N_movies, N_users):
+def correlation_matrix(X, idxTrain, knn, N_movies, filepath):
     start = time.time()
     zeroTolerance = 1e-9
     # Construct a matrix movies x users with train data
@@ -58,7 +61,16 @@ def correlation_matrix(X, idxTrain, knn, N_movies, N_users):
                 weights.append(W[i][j])
 
     edge_index = torch.LongTensor(np.array([src, dst]))
-    return edge_index, torch.tensor(weights).float()
+    edge_weights = torch.tensor(weights).float()
+
+    data = {
+        'edge_index': edge_index,
+        'edge_weights': edge_weights
+    }
+
+    file_to_write = open(filepath, 'wb')
+    pickle.dump(data, file_to_write)
+    file_to_write.close()
 
 
 def original_correlation_matrix(X, idxTrain, knn):
