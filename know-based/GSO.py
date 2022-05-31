@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import pickle
 import scipy
+import pickle
 
 # Construct adyacency matrix
 def correlation_matrix(X, idxTrain, knn, N_movies, filepath):
