@@ -5,7 +5,7 @@ import torch_geometric.transforms as T
 from torch_geometric.nn import SAGEConv, to_hetero
 from pyg_dataset import MovieGraph
 import matplotlib.pyplot as plt
-from scipy.sparse import identity
+from torch_geometric.loader import LinkNeighborLoader
 
 
 MODEL_PATH = '../models/bipartite/sageconv'
@@ -94,26 +94,26 @@ class Model(torch.nn.Module):
 
 
 model = Model(hidden_channels=32).to(device)
-print(train_data)
 
-from pytorch_geometric.torch_geometric.loader import LinkNeighborLoader
-
-loader = LinkNeighborLoader(
+train_loader = LinkNeighborLoader(
     train_data, 
-    num_neighbors={'':[-1], '':[-1]},
-    edge_label_index=train_data,
-    edge_label=train_data,
-    batch_size=128
+    num_neighbors=[30]*2,
+    edge_label_index=(('user', 'rates', 'movie'), train_data[('user', 'rates', 'movie')].edge_label_index),
+    edge_label=train_data[('user', 'rates', 'movie')].edge_label,
+    shuffle=True,
+    batch_size=1024
 )
 
-sampled_data = next(iter(loader))
-print(sampled_data)
-
 # Due to lazy initialization, we need to run one model step so the number of parameters can be inferred:
-'''with torch.no_grad():
-    model.encoder(train_data.x_dict, train_data.edge_index_dict)
+with torch.no_grad():
+    batch = next(iter(train_loader))
+    print(train_data)
+    print(batch)
+    print(batch.edge_label_dict[('user', 'rates', 'movie')].shape)
+    print(batch.edge_index_dict[('user', 'rates', 'movie')].shape)
+    model.encoder(batch.x_dict, batch.edge_index_dict)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+'''optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min',
                                                        patience=10)
 
