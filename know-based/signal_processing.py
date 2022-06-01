@@ -25,7 +25,7 @@ import json
 TARGET_MOVIES = [i for i in range(9724)]
 KNN = 40
 TRAIN_SPLIT = 0.85
-N_EPOCHS = 101
+N_EPOCHS = 5
 
 # Preprocess data
 df_ratings = pd.read_csv("../data/raw/ml-latest-small/ratings.csv")
@@ -58,14 +58,14 @@ for idx, row in df_ratings.iterrows():
     X[int(row["userId"]), int(row["movieId"])] = row["rating"]
 
 GSO_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "precomputed_GSO/pearson_correlation.pkl")
-train_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/train")
-test_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/test")
+train_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/train")
+test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/test")
 
-if not os.path.exists(train_filepath):
-    os.makedirs(train_filepath)
+if not os.path.exists(train_dir):
+    os.makedirs(train_dir)
 
-if not os.path.exists(test_filepath):
-    os.makedirs(train_filepath)
+if not os.path.exists(test_dir):
+    os.makedirs(test_dir)
 
 if not os.path.exists(GSO_filepath):
     correlation_matrix(X, idxTrain, KNN, N_movies, GSO_filepath)
@@ -76,16 +76,8 @@ file_to_read.close()
 
 edge_index, edge_weights = data['edge_index'], data['edge_weights']
 
-split_data(X, idxTrain, idxTest, TARGET_MOVIES, train_filepath, test_filepath)
+split_data(X, idxTrain, idxTest, TARGET_MOVIES, train_dir, test_dir)
 
-'''
-xTrain = torch.tensor(xTrain).float().t()
-yTrain = torch.tensor(yTrain).float().t()
-xTest = torch.tensor(xTest).float().t()
-yTest = torch.tensor(yTest).float().t()'''
-
-train_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/train")
-test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/test")
 train_dataset = SignalsDataset(root_dir=train_dir)
 test_dataset = SignalsDataset(root_dir=test_dir)
 
@@ -231,39 +223,40 @@ for epoch in range(1, N_EPOCHS):
         yTrain = yTrain.float().t()
         train_rmse += train_step(xTrain, yTrain)
         total_train_steps += 1
-    train_history.append(float(train_rmse / total_train_steps))
+    mean_train = float(train_rmse / total_train_steps)
+    train_history.append(mean_train)
 
     test_rmse = 0
     total_test_steps = 0
-
     for _, data in enumerate(test_dataloader):
         xTest, yTest = data
         xTest = xTest.float().t()
         yTest = yTest.float().t()
         test_rmse += eval(xTest, yTest)
         total_test_steps += 1
-    test_history.append(float(test_rmse / total_test_steps))
-    scheduler.step(float(test_rmse / total_test_steps))
+    mean_test = float(test_rmse / total_test_steps)
+    test_history.append(mean_test)
+    scheduler.step(mean_test)
 
-    if test_rmse < best_test_accuracy:
-        best_train_accuracy = train_rmse
-        best_test_accuracy = test_rmse
+    if mean_test < best_test_accuracy:
+        best_train_accuracy = mean_train
+        best_test_accuracy = mean_test
         torch.save(model, best_model_path)
 
     if epoch == N_EPOCHS - 1:
-        last_train_accuracy = train_rmse
-        last_test_accuracy = test_rmse
+        last_train_accuracy = mean_train
+        last_test_accuracy = mean_test
         torch.save(model, last_model_path)
 
     lr = optimizer.state_dict()['param_groups'][0]['lr']
-    if epoch % 10 == 0:
-        print(f'Epoch: {epoch:03d}, Train_rmse: {train_rmse:.4f}, Test_rmse: {test_rmse:.4f}, LR: {lr:.10f}')
+    #if epoch % 10 == 0:
+    print(f'Epoch: {epoch:03d}, Train_rmse: {mean_train:.4f}, Test_rmse: {mean_test:.4f}, LR: {lr:.10f}')
 
 print("Finished trainning...Evaluating model")
 
-model = torch.load(best_model_path)
+'''model = torch.load(best_model_path)
 train_rmse = eval(xTrain, yTrain)
-test_rmse = eval(xTest, yTest)
+test_rmse = eval(xTest, yTest)'''
 print(f"Best model has train RMSE: {best_train_accuracy}")
 print(f"Best model has test RMSE: {best_test_accuracy}")
 print(f"Last model has train RMSE: {last_train_accuracy}")
