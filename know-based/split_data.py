@@ -3,6 +3,7 @@ import random
 import json
 import os
 
+
 def split_data(X, idxTrain, idxTest, idxMovie, train_filepath, test_filepath):
     xTrain = X[idxTrain, :]
     generate_signals(xTrain, idxMovie, train_filepath)
@@ -20,7 +21,7 @@ def generate_signals(X, idx, root_folder):
 
     if not os.path.exists(f"{root_folder}/signals"):
         os.makedirs(f"{root_folder}/signals")
-    
+
     if not os.path.exists(f"{root_folder}/labels"):
         os.makedirs(f"{root_folder}/labels")
 
@@ -33,7 +34,7 @@ def generate_signals(X, idx, root_folder):
 
         SAMPLES_PER_USER = 50
 
-        ref = X[i,:]
+        ref = X[i, :]
 
         non_zero_elements = set(np.where(ref != 0)[0])
 
@@ -51,33 +52,40 @@ def generate_signals(X, idx, root_folder):
             ref_signal[idx2] = 0
             label = np.zeros(len(ref_signal))
             label[idx2] = ref[idx2]
-            n_elem += 1
-            # Si no hay 50 señales appendeamos la señal
-            if n_elem % 50 != 0:
-                signals_matrix.append(ref_signal)
-                labels_matrix.append(label)
 
-            # Si hay 50 señales guardamos en ficheros y abrimos nuevos
-            else:
-                filename = n_elem/50
+            signals_matrix.append(ref_signal)
+            labels_matrix.append(label)
+            n_elem += 1
+
+            # Si hay 50 señales appendeamos la señal
+            if n_elem % 50 == 0:
+                filename = int(n_elem / 50)
                 with open(f"{root_folder}/signals/{filename}.npy", 'wb') as f:
                     signals_matrix = np.array(signals_matrix)
-                    np.random.seed(0)
-                    np.random.shuffle(signals_matrix)
                     np.save(f, signals_matrix)
 
                 with open(f"{root_folder}/labels/{filename}.npy", 'wb') as f:
                     labels_matrix = np.array(labels_matrix)
-                    np.random.seed(0)
-                    np.random.shuffle(labels_matrix)
                     np.save(f, labels_matrix)
 
                 info[filename] = [f"{root_folder}/signals/{filename}.npy", f"{root_folder}/labels/{filename}.npy"]
 
                 signals_matrix = []
                 labels_matrix = []
-    
+
+    # dump de las que quedan
+    filename = int(n_elem / 50) + 1
+    with open(f"{root_folder}/signals/{filename}.npy", 'wb') as f:
+        signals_matrix = np.array(signals_matrix)
+        np.save(f, signals_matrix)
+
+    with open(f"{root_folder}/labels/{filename}.npy", 'wb') as f:
+        labels_matrix = np.array(labels_matrix)
+        np.save(f, labels_matrix)
+
+    info[filename] = [f"{root_folder}/signals/{filename}.npy", f"{root_folder}/labels/{filename}.npy"]
+
     info["size"] = n_elem
+
     with open(f"{root_folder}/info.json", 'w') as outfile:
         json.dump(info, outfile)
-

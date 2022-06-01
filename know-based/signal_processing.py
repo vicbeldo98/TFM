@@ -1,4 +1,7 @@
+from signals_dataset import SignalsDataset
+
 # torch related libraries
+from cgi import test
 import torch
 from torch.nn import Linear
 from torch_geometric.nn import MessagePassing
@@ -7,6 +10,8 @@ from torch_geometric.nn import MessagePassing
 from split_data import split_data
 from GSO import correlation_matrix
 from MSELoss import movieMSELoss
+from torch.utils.data import DataLoader
+
 
 # other needed libraries
 import pandas as pd
@@ -15,8 +20,9 @@ import pickle
 import math
 import os
 import matplotlib.pyplot as plt
+import json
 
-TARGET_MOVIES = [i for i in range(9724)] #  [257]
+TARGET_MOVIES = [i for i in range(9724)]
 KNN = 40
 TRAIN_SPLIT = 0.85
 N_EPOCHS = 101
@@ -71,30 +77,33 @@ file_to_read.close()
 edge_index, edge_weights = data['edge_index'], data['edge_weights']
 
 split_data(X, idxTrain, idxTest, TARGET_MOVIES, train_filepath, test_filepath)
-input()
-'''with open(train_signals_filepath, 'rb') as f:
-    xTrain = np.load(f)
-with open(train_labels_filepath, 'rb') as f:
-    yTrain = np.load(f)
-with open(test_signals_filepath, 'rb') as f:
-    xTest = np.load(f)
-with open(test_labels_filepath, 'rb') as f:
-    yTest = np.load(f)
 
+'''
 xTrain = torch.tensor(xTrain).float().t()
 yTrain = torch.tensor(yTrain).float().t()
 xTest = torch.tensor(xTest).float().t()
 yTest = torch.tensor(yTest).float().t()'''
 
+train_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/train")
+test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/test")
+train_dataset = SignalsDataset(root_dir=train_dir)
+test_dataset = SignalsDataset(root_dir=test_dir)
 
-nTrain = xTrain.shape[0]
-nTest = xTest.shape[0]
-print("Number of training samples: " + str(nTrain))
-print("Number of testing samples: " + str(nTest))
-print("xTrain: " + str(xTrain.shape))
-print("yTrain: " + str(yTrain.shape))
-print("xTest: " + str(xTest.shape))
-print("yTest: " + str(yTest.shape))
+train_dataloader = DataLoader(train_dataset, batch_size=512, shuffle=True)
+test_dataloader = DataLoader(test_dataset, batch_size=512, shuffle=True)
+
+
+with open(f"{train_dir}/info.json", 'r') as outfile:
+    info = json.load(outfile)
+    samples_train = info["size"]
+
+with open(f"{test_dir}/info.json", 'r') as outfile:
+    info = json.load(outfile)
+    samples_test = info["size"]
+
+
+print("Number of train signals: " + str(samples_train))
+print("Number of testing signals: " + str(samples_test))
 
 
 class MyConv(MessagePassing):
@@ -174,21 +183,20 @@ class Model(torch.nn.Module):
 model = Model()
 
 with torch.no_grad():
-    model.encoder(xTrain, edge_index, edge_weights)
+    model.encoder(next(iter(train_dataloader))[0].float().t(), edge_index, edge_weights)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience=20)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20)
 
-print("data: " + str(xTrain.shape))
 print("edge_index: " + str(edge_index.shape))
 print("edge_weights: " + str(edge_weights.shape))
 
 
-def train_step():
+def train_step(x, y):
     model.train()
     optimizer.zero_grad()
-    pred = model(xTrain, edge_index, edge_weights)
-    target = yTrain
+    pred = model(x, edge_index, edge_weights)
+    target = y
     loss = movieMSELoss(pred, target, TARGET_MOVIES)
     loss.backward()
     optimizer.step()
@@ -203,6 +211,7 @@ def eval(x, y):
     rmse = movieMSELoss(pred, y, TARGET_MOVIES)
     return float(rmse)
 
+
 best_model_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models/gps_pearson_best.pth")
 last_model_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models/gps_pearson_last.pth")
 last_train_accuracy = 0
@@ -214,22 +223,37 @@ train_history = []
 test_history = []
 
 for epoch in range(1, N_EPOCHS):
-    train_rmse = train_step()
-    train_history.append(train_rmse)
-    test_rmse = eval(xTest, yTest)
-    test_history.append(test_rmse)
-    scheduler.step(test_rmse)
+    train_rmse = 0
+    total_train_steps = 0
+    for _, data in enumerate(train_dataloader):
+        xTrain, yTrain = data
+        xTrain = xTrain.float().t()
+        yTrain = yTrain.float().t()
+        train_rmse += train_step(xTrain, yTrain)
+        total_train_steps += 1
+    train_history.append(float(train_rmse / total_train_steps))
+
+    test_rmse = 0
+    total_test_steps = 0
+
+    for _, data in enumerate(test_dataloader):
+        xTest, yTest = data
+        xTest = xTest.float().t()
+        yTest = yTest.float().t()
+        test_rmse += eval(xTest, yTest)
+        total_test_steps += 1
+    test_history.append(float(test_rmse / total_test_steps))
+    scheduler.step(float(test_rmse / total_test_steps))
 
     if test_rmse < best_test_accuracy:
         best_train_accuracy = train_rmse
         best_test_accuracy = test_rmse
         torch.save(model, best_model_path)
-    
-    if epoch == N_EPOCHS-1:
+
+    if epoch == N_EPOCHS - 1:
         last_train_accuracy = train_rmse
         last_test_accuracy = test_rmse
         torch.save(model, last_model_path)
-
 
     lr = optimizer.state_dict()['param_groups'][0]['lr']
     if epoch % 10 == 0:
@@ -245,9 +269,9 @@ print(f"Best model has test RMSE: {best_test_accuracy}")
 print(f"Last model has train RMSE: {last_train_accuracy}")
 print(f"Last model has test RMSE: {last_test_accuracy}")
 
-x_axis = list(range(1,N_EPOCHS,1))
+x_axis = list(range(1, N_EPOCHS, 1))
 
-plt.plot(x_axis, train_history, label = "Train RMSE")
-plt.plot(x_axis, test_history, label = "Test RMSE")
+plt.plot(x_axis, train_history, label="Train RMSE")
+plt.plot(x_axis, test_history, label="Test RMSE")
 plt.legend()
 plt.show()
