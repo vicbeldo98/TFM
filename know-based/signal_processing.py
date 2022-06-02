@@ -22,17 +22,17 @@ import os
 import matplotlib.pyplot as plt
 import json
 
-TARGET_MOVIES = [i for i in range(9724)]
-KNN = 40
-TRAIN_SPLIT = 0.85
-N_EPOCHS = 5
+TARGET_MOVIES = [i for i in range(10)]#[i for i in range(9724)]
+KNN = 3 #40
+TRAIN_SPLIT = 0.5
+N_EPOCHS = 20
 
 # Preprocess data
-df_ratings = pd.read_csv("../data/raw/ml-latest-small/ratings.csv")
+df_ratings = pd.read_csv("../data/raw/small-test/ratings.csv")
 
-movie_mapping = {idx: i for i, idx in enumerate(df_ratings.movieId.unique())}
+movie_mapping = {idx: i for i, idx in enumerate(set(df_ratings.movieId.unique()))}
 df_ratings["movieId"] = [movie_mapping[idx] for idx in df_ratings["movieId"]]
-user_mapping = {idx: i for i, idx in enumerate(df_ratings.userId.unique())}
+user_mapping = {idx: i for i, idx in enumerate(set(df_ratings.userId.unique()))}
 df_ratings["userId"] = [user_mapping[idx] for idx in df_ratings["userId"]]
 
 # Split data into train and test
@@ -81,8 +81,8 @@ split_data(X, idxTrain, idxTest, TARGET_MOVIES, train_dir, test_dir)
 train_dataset = SignalsDataset(root_dir=train_dir)
 test_dataset = SignalsDataset(root_dir=test_dir)
 
-train_dataloader = DataLoader(train_dataset, batch_size=512, shuffle=True)
-test_dataloader = DataLoader(test_dataset, batch_size=512, shuffle=True)
+train_dataloader = DataLoader(train_dataset, batch_size=512, shuffle=False)
+test_dataloader = DataLoader(test_dataset, batch_size=512, shuffle=False)
 
 
 with open(f"{train_dir}/info.json", 'r') as outfile:
@@ -188,6 +188,7 @@ def train_step(x, y):
     model.train()
     optimizer.zero_grad()
     pred = model(x, edge_index, edge_weights)
+    pred = pred.t()
     target = y
     loss = movieMSELoss(pred, target, TARGET_MOVIES)
     loss.backward()
@@ -220,7 +221,7 @@ for epoch in range(1, N_EPOCHS):
     for _, data in enumerate(train_dataloader):
         xTrain, yTrain = data
         xTrain = xTrain.float().t()
-        yTrain = yTrain.float().t()
+        yTrain = yTrain.float()
         train_rmse += train_step(xTrain, yTrain)
         total_train_steps += 1
     mean_train = float(train_rmse / total_train_steps)
@@ -253,10 +254,6 @@ for epoch in range(1, N_EPOCHS):
     print(f'Epoch: {epoch:03d}, Train_rmse: {mean_train:.4f}, Test_rmse: {mean_test:.4f}, LR: {lr:.10f}')
 
 print("Finished trainning...Evaluating model")
-
-'''model = torch.load(best_model_path)
-train_rmse = eval(xTrain, yTrain)
-test_rmse = eval(xTest, yTest)'''
 print(f"Best model has train RMSE: {best_train_accuracy}")
 print(f"Best model has test RMSE: {best_test_accuracy}")
 print(f"Last model has train RMSE: {last_train_accuracy}")
