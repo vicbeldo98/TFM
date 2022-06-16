@@ -22,7 +22,7 @@ import os
 import matplotlib.pyplot as plt
 import json
 
-TARGET_MOVIES = [i for i in range(10)]#[i for i in range(9724)]
+TARGET_MOVIES = [1] #[i for i in range(10)]#[i for i in range(9724)]
 KNN = 3 #40
 TRAIN_SPLIT = 0.5
 N_EPOCHS = 20
@@ -75,6 +75,10 @@ data = pickle.load(file_to_read)
 file_to_read.close()
 
 edge_index, edge_weights = data['edge_index'], data['edge_weights']
+print("GSO:")
+print(edge_index)
+print(edge_weights)
+print("******************************")
 
 split_data(X, idxTrain, idxTest, TARGET_MOVIES, train_dir, test_dir)
 
@@ -117,9 +121,13 @@ class MyConv(MessagePassing):
     def forward(self, x, edge_index, edge_weight):
         # conv dimensions == B * F_in * K * N
         conv = x.permute(1, 0).reshape([-1, self.in_features, 1, N_movies])
-
+        print(x)
         for k in range(1, self.K):
             x = self.propagate(edge_index, x=x, edge_weight=edge_weight)
+            
+            print("new X")
+            print(x)
+            print('*********************************')
             x_aux = x.permute(1, 0).reshape([-1, self.in_features, 1, N_movies])
             conv = torch.cat((conv, x_aux), dim=2)
 
@@ -188,7 +196,6 @@ def train_step(x, y):
     model.train()
     optimizer.zero_grad()
     pred = model(x, edge_index, edge_weights)
-    pred = pred.t()
     target = y
     loss = movieMSELoss(pred, target, TARGET_MOVIES)
     loss.backward()
@@ -221,7 +228,11 @@ for epoch in range(1, N_EPOCHS):
     for _, data in enumerate(train_dataloader):
         xTrain, yTrain = data
         xTrain = xTrain.float().t()
-        yTrain = yTrain.float()
+        print(xTrain)
+        input()
+        yTrain = yTrain.float().t()
+        print(xTest)
+        input()
         train_rmse += train_step(xTrain, yTrain)
         total_train_steps += 1
     mean_train = float(train_rmse / total_train_steps)

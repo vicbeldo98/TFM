@@ -46,6 +46,11 @@ def correlation_matrix(X, idxTrain, knn, N_movies, filepath):
     # Normalizing by eigenvalue with largest magnitude
     E, V = scipy.sparse.linalg.eigs(W)
     W = W/np.max(np.abs(E))
+
+    print('*************************')
+    print(W)
+    print('*************************')
+    input()
     end = time.time()
     time_spent = end - start
     print("Time spent computing the correlation matrix: " + str(time_spent) + "s")
