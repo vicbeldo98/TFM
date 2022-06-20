@@ -28,7 +28,7 @@ TRAIN_SPLIT = 0.5
 N_EPOCHS = 20
 
 # Preprocess data
-df_ratings = pd.read_csv("../data/raw/small-test/ratings.csv")
+df_ratings = pd.read_csv("../data/raw/small-test/ratings_2.csv")
 
 movie_mapping = {idx: i for i, idx in enumerate(set(df_ratings.movieId.unique()))}
 df_ratings["movieId"] = [movie_mapping[idx] for idx in df_ratings["movieId"]]
@@ -75,10 +75,6 @@ data = pickle.load(file_to_read)
 file_to_read.close()
 
 edge_index, edge_weights = data['edge_index'], data['edge_weights']
-print("GSO:")
-print(edge_index)
-print(edge_weights)
-print("******************************")
 
 split_data(X, idxTrain, idxTest, TARGET_MOVIES, train_dir, test_dir)
 
