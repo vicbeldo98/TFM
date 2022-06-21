@@ -18,6 +18,10 @@ def pearson_correlation(X, idxTrain, KNN, N, filepath):
     W[np.isnan(W)] = 0
     W = np.matrix(W)
 
+    print('*************COMPUTED GSO************:')
+    print(W)
+    input()
+
     W[np.abs(W) < zeroTolerance] = 0.
 
     # Tiene sentido esto? O sería mejor convertir todos los valores desde [-0.5, 0.5] a 0
