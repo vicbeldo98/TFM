@@ -27,11 +27,34 @@ TRAIN_SPLIT = 0.85
 N_EPOCHS = 30
 VERBOSE = False
 
-classes = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0)
+
+classes = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]
 
 
-def to_categorical(y, num_classes):
-    return np.eye(num_classes, dtype='uint8')[y]
+def to_categorical(batch, idx):
+    target = batch[:, idx]
+    new_target = []
+    for i in target:
+        aux = np.zeros(10)
+        pos = classes.index(i)
+        aux[pos] = 1
+        new_target.append(aux)
+    res = torch.tensor(np.array(new_target))
+    return res
+
+
+def calc_accuracy(pred, target):
+    total = 0
+    correct = 0
+    for i in range(pred.shape[0]):
+        pos = np.where(pred[i] == max(pred[i]))[0][0]
+        pred_class = classes[pos]
+        pos2 = np.where(target[i] != 0)[0][0]
+        target_class = classes[pos2]
+        if pred_class == target_class:
+            correct += 1
+        total += 1
+    return float(correct / total)
 
 
 # Preprocess data
@@ -228,8 +251,8 @@ def train_step(x, y):
     model.train()
     optimizer.zero_grad()
     pred = model(x, edge_index, edge_weights)
-    target = y
-    loss = movieMSELoss(pred, target, TARGET_MOVIES)
+    target = to_categorical(y, TARGET_MOVIES[0])
+    loss = criterion(pred, target)
     loss.backward()
     optimizer.step()
     return float(loss)
@@ -239,9 +262,9 @@ def train_step(x, y):
 def eval(x, y):
     model.eval()
     pred = model(x, edge_index, edge_weights)
-    pred = pred.clamp(min=0, max=5)
-    rmse = movieMSELoss(pred, y, TARGET_MOVIES)
-    return float(rmse)
+    target = to_categorical(y, TARGET_MOVIES[0])
+    acc = calc_accuracy(pred, target)
+    return acc
 
 
 best_model_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models/gps_pearson_best.pth")
@@ -255,25 +278,25 @@ train_history = []
 test_history = []
 
 for epoch in range(1, N_EPOCHS):
-    train_rmse = 0
+    train_loss = 0
     total_train_steps = 0
     for _, data in enumerate(train_dataloader):
         xTrain, yTrain = data
         xTrain = xTrain.float().t()
-        yTrain = yTrain.float().t()
-        train_rmse += train_step(xTrain, yTrain)
+        yTrain = yTrain.float()
+        train_loss += train_step(xTrain, yTrain)
         total_train_steps += 1
-    mean_train = float(train_rmse / total_train_steps)
+    mean_train = float(train_loss / total_train_steps)
     train_history.append(mean_train)
-    test_rmse = 0
+    test_loss = 0
     total_test_steps = 0
     for _, data in enumerate(test_dataloader):
         xTest, yTest = data
         xTest = xTest.float().t()
-        yTest = yTest.float().t()
-        test_rmse += eval(xTest, yTest)
+        yTest = yTest.float()
+        test_loss += eval(xTest, yTest)
         total_test_steps += 1
-    mean_test = float(test_rmse / total_test_steps)
+    mean_test = float(test_loss / total_test_steps)
     test_history.append(mean_test)
     scheduler.step(mean_test)
 
@@ -289,7 +312,7 @@ for epoch in range(1, N_EPOCHS):
 
     lr = optimizer.state_dict()['param_groups'][0]['lr']
     #   if epoch % 10 == 0:
-    print(f'Epoch: {epoch:03d}, Train_rmse: {mean_train:.4f}, Test_rmse: {mean_test:.4f}, LR: {lr:.10f}')
+    print(f'Epoch: {epoch:03d}, Loss: {mean_train:.4f}, Accuracy: {mean_test:.4f}, LR: {lr:.10f}')
 
 print("Finished trainning...Evaluating model")
 print(f"Best model has train RMSE: {best_train_accuracy}")
