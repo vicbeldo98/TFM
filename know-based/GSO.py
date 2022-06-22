@@ -25,10 +25,10 @@ def pearson_correlation(X, idxTrain, KNN, N, filepath):
     W[np.abs(W) < zeroTolerance] = 0.
 
     # Tiene sentido esto? O sería mejor convertir todos los valores desde [-0.5, 0.5] a 0
-    WSorted = np.sort(W, axis=1)
+    '''WSorted = np.sort(W, axis=1)
     threshold = WSorted[:, -KNN].squeeze()
     thresholdMatrix = (np.tile(threshold, (N, 1))).transpose()
-    W[W < thresholdMatrix] = 0
+    W[W < thresholdMatrix] = 0'''
 
     end = time.time()
     time_spent = end - start
