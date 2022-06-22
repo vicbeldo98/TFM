@@ -7,7 +7,7 @@ from torch_geometric.nn import MessagePassing
 
 # functionalities
 from split_data import split_data
-from GSO import pearson_correlation
+from GSO import pearson_correlation, correlation_matrix
 from MSELoss import movieMSELoss
 from torch.utils.data import DataLoader
 
@@ -21,32 +21,37 @@ import os
 import matplotlib.pyplot as plt
 import json
 
-TARGET_MOVIES = [1]  # [i for i in range(10)]#[i for i in range(9724)]
-KNN = 3  # 40
-TRAIN_SPLIT = 0.5
-N_EPOCHS = 2
+TARGET_MOVIES = [257]
+KNN = 40
+TRAIN_SPLIT = 0.85
+N_EPOCHS = 30
+VERBOSE = False
 
 # Preprocess data
-df_ratings = pd.read_csv("../data/raw/small-test/ratings_0.csv")
+df_ratings = pd.read_csv("../data/raw/ml-latest-small/ratings.csv")
 
 movie_mapping = {idx: i for i, idx in enumerate(set(df_ratings.movieId.unique()))}
 df_ratings["movieId"] = [movie_mapping[idx] for idx in df_ratings["movieId"]]
 user_mapping = {idx: i for i, idx in enumerate(set(df_ratings.userId.unique()))}
 df_ratings["userId"] = [user_mapping[idx] for idx in df_ratings["userId"]]
 
+TARGET_MOVIES = [movie_mapping[i] for i in TARGET_MOVIES]
+
 # Split data into train and test
 nTotal = len(user_mapping.keys())
-print("Number of users: " + str(nTotal))
-print("Number of movies: " + str(len(movie_mapping.keys())))
-print("Number of ratings: " + str(df_ratings.shape[0]))
+if VERBOSE:
+    print("Number of users: " + str(nTotal))
+    print("Number of movies: " + str(len(movie_mapping.keys())))
+    print("Number of ratings: " + str(df_ratings.shape[0]))
 
 permutation = np.random.RandomState(seed=42).permutation(np.arange(nTotal))
 nTrain = int(np.ceil(TRAIN_SPLIT * nTotal))
 idxTrain = permutation[0:nTrain]
 nTest = nTotal - nTrain
 idxTest = permutation[nTrain:nTotal]
-print("Number of signals to train: " + str(nTrain))
-print("Number of signals to test: " + str(nTest))
+if VERBOSE:
+    print("Number of signals to train: " + str(nTrain))
+    print("Number of signals to test: " + str(nTest))
 
 N_users = len(user_mapping.keys())
 N_movies = len(movie_mapping.keys())
@@ -67,7 +72,7 @@ if not os.path.exists(test_dir):
     os.makedirs(test_dir)
 
 if not os.path.exists(GSO_filepath):
-    pearson_correlation(X, idxTrain, KNN, N_movies, GSO_filepath)
+    correlation_matrix(X, idxTrain, KNN, N_movies, GSO_filepath)
 
 file_to_read = open(GSO_filepath, 'rb')
 data = pickle.load(file_to_read)
@@ -92,9 +97,9 @@ with open(f"{test_dir}/info.json", 'r') as outfile:
     info = json.load(outfile)
     samples_test = info["size"]
 
-
-print("Number of train signals: " + str(samples_train))
-print("Number of testing signals: " + str(samples_test))
+if VERBOSE:
+    print("Number of train signals: " + str(samples_train))
+    print("Number of testing signals: " + str(samples_test))
 
 
 class MyConv(MessagePassing):
@@ -115,26 +120,27 @@ class MyConv(MessagePassing):
 
     def forward(self, x, edge_index, edge_weight):
         # conv dimensions == B * F_in * K * N
-        print("Sample:")
-        print(x)
-        input()
+        if VERBOSE:
+            print("Sample:")
+            print(x.shape)
+            print(x)
         conv = x.permute(1, 0).reshape([-1, self.in_features, 1, N_movies])
 
         for k in range(1, self.K):
             x = self.propagate(edge_index, x=x, edge_weight=edge_weight)
-            print(f"Propagation {k}:")
-            print(x)
-            input()
+            if VERBOSE:
+                print(f"Propagation {k}:")
+                print(x)
             x_aux = x.permute(1, 0).reshape([-1, self.in_features, 1, N_movies])
             conv = torch.cat((conv, x_aux), dim=2)
 
         # Actually multiply by the parameters
         # Reshape conv must be KG x F ===> order to B x N_movies x K x in_features and  reshape to B x N x (K*in_features)
         reshaped_conv = conv.permute(0, 3, 2, 1).reshape([-1, N_movies, self.K * self.in_features])
-        print("Matrix of accumulated embeddings:")
-        print(reshaped_conv.shape)
-        print(reshaped_conv)
-        input()
+        if VERBOSE:
+            print("Matrix of accumulated embeddings:")
+            print(reshaped_conv.shape)
+            print(reshaped_conv)
 
         # h convert KG x F
         h = self.weight.reshape([self.out_features, self.K * self.in_features]).permute(1, 0)
@@ -143,10 +149,10 @@ class MyConv(MessagePassing):
 
         if self.bias is not None:
             y = y + self.bias
-        print("Final result of forward")
-        print(y.shape)
-        print(y)
-        input()
+        if VERBOSE:
+            print("Final result of forward")
+            print(y.shape)
+            print(y)
         return y
 
     def message(self, x_j, edge_weight):
@@ -183,10 +189,10 @@ class Model(torch.nn.Module):
     def forward(self, x_dict, edge_index_dict, edge_label_index):
         y = self.encoder(x_dict, edge_index_dict, edge_label_index)
         z_dict = self.decoder(y)
-        print("After linear layer and reshape:")
-        print(z_dict.shape)
-        print(z_dict)
-        input()
+        if VERBOSE:
+            print("After linear layer and reshape:")
+            print(z_dict.shape)
+            print(z_dict)
         return z_dict
 
 
@@ -198,8 +204,9 @@ with torch.no_grad():
 optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20)
 
-print("edge_index: " + str(edge_index.shape))
-print("edge_weights: " + str(edge_weights.shape))
+if VERBOSE:
+    print("edge_index: " + str(edge_index.shape))
+    print("edge_weights: " + str(edge_weights.shape))
 
 
 def train_step(x, y):

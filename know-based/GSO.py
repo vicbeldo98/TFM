@@ -1,10 +1,8 @@
-from fileinput import filename
 import time
 import numpy as np
 import torch
 import pickle
 import scipy
-import pickle
 import pandas as pd
 
 
@@ -18,17 +16,7 @@ def pearson_correlation(X, idxTrain, KNN, N, filepath):
     W[np.isnan(W)] = 0
     W = np.matrix(W)
 
-    print('*************COMPUTED GSO************:')
-    print(W)
-    input()
-
     W[np.abs(W) < zeroTolerance] = 0.
-
-    # Tiene sentido esto? O sería mejor convertir todos los valores desde [-0.5, 0.5] a 0
-    '''WSorted = np.sort(W, axis=1)
-    threshold = WSorted[:, -KNN].squeeze()
-    thresholdMatrix = (np.tile(threshold, (N, 1))).transpose()
-    W[W < thresholdMatrix] = 0'''
 
     end = time.time()
     time_spent = end - start
@@ -77,7 +65,7 @@ def correlation_matrix(X, idxTrain, knn, N_movies, filepath):
     sqrtDiagonal = np.sqrt(np.diag(correlationMatrix))
     nonzeroSqrtDiagonalIndex = (sqrtDiagonal > zeroTolerance).astype(sqrtDiagonal.dtype)
     sqrtDiagonal[sqrtDiagonal < zeroTolerance] = 1.
-    invSqrtDiagonal = 1/sqrtDiagonal
+    invSqrtDiagonal = 1 / sqrtDiagonal
     invSqrtDiagonal = invSqrtDiagonal * nonzeroSqrtDiagonalIndex
     normalizationMatrix = np.diag(invSqrtDiagonal)
 
@@ -98,9 +86,6 @@ def correlation_matrix(X, idxTrain, knn, N_movies, filepath):
     E, V = scipy.sparse.linalg.eigs(W)
     W = W / np.max(np.abs(E))
 
-    print('*************COMPUTED GSO************:')
-    print(W)
-    input()
     end = time.time()
     time_spent = end - start
     print("Time spent computing the correlation matrix: " + str(time_spent) + "s")
