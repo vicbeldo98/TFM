@@ -27,6 +27,13 @@ TRAIN_SPLIT = 0.85
 N_EPOCHS = 30
 VERBOSE = False
 
+classes = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0)
+
+
+def to_categorical(y, num_classes):
+    return np.eye(num_classes, dtype='uint8')[y]
+
+
 # Preprocess data
 df_ratings = pd.read_csv("../data/raw/ml-latest-small/ratings.csv")
 
@@ -173,10 +180,14 @@ class Decoder(torch.nn.Module):
     def __init__(self, out_features=64, dim_readout=1):
         super().__init__()
         self.lin1 = Linear(out_features, dim_readout)
+        self.lin2 = Linear(N_movies, len(classes))
 
     def forward(self, z):
         z = self.lin1(z)
-        z = z.reshape(-1, N_movies).permute(1, 0)
+        z = z.reshape(-1, N_movies)  # .permute(1, 0)
+        z = self.lin2(z)
+        m = torch.nn.Softmax(dim=1)
+        z = m(z)
         return z
 
 
@@ -201,12 +212,16 @@ model = Model()
 with torch.no_grad():
     model.encoder(next(iter(train_dataloader))[0].float().t(), edge_index, edge_weights)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20)
-
 if VERBOSE:
     print("edge_index: " + str(edge_index.shape))
     print("edge_weights: " + str(edge_weights.shape))
+
+#   optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+
+
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20)
 
 
 def train_step(x, y):
