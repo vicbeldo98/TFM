@@ -6,45 +6,6 @@ import scipy
 import pandas as pd
 
 
-# Pearson correlation
-def pearson_correlation(X, idxTrain, KNN, N, filepath):
-    start = time.time()
-    zeroTolerance = 1e-6
-    XTrain = X[idxTrain, :]
-    df = pd.DataFrame(XTrain)
-    W = df.corr(method='pearson')
-    W[np.isnan(W)] = 0
-    W = np.matrix(W)
-
-    W[np.abs(W) < zeroTolerance] = 0.
-
-    end = time.time()
-    time_spent = end - start
-    print("Time spent computing the correlation matrix: " + str(time_spent) + "s")
-
-    src = []
-    dst = []
-    weights = []
-    for i in range(W.shape[0]):
-        for j in range(W.shape[1]):
-            if W[i][j] > 0.001:
-                src.append(i)
-                dst.append(j)
-                weights.append(W[i][j])
-
-    edge_index = torch.LongTensor(np.array([src, dst]))
-    edge_weights = torch.tensor(weights).float()
-
-    data = {
-        'edge_index': edge_index,
-        'edge_weights': edge_weights
-    }
-
-    file_to_write = open(filepath, 'wb')
-    pickle.dump(data, file_to_write)
-    file_to_write.close()
-
-
 # Construct adyacency matrix
 def correlation_matrix(X, idxTrain, knn, N_movies, filepath):
     start = time.time()
@@ -111,3 +72,61 @@ def correlation_matrix(X, idxTrain, knn, N_movies, filepath):
     file_to_write = open(filepath, 'wb')
     pickle.dump(data, file_to_write)
     file_to_write.close()
+
+
+# Pearson correlation
+def pearson_correlation(X, idxTrain, KNN, N, filepath):
+    start = time.time()
+    zeroTolerance = 1e-6
+    XTrain = X[idxTrain, :]
+    df = pd.DataFrame(XTrain)
+    W = df.corr(method='pearson')
+    W[np.isnan(W)] = 0
+    W = np.matrix(W)
+
+    W[np.abs(W) < zeroTolerance] = 0.
+
+    end = time.time()
+    time_spent = end - start
+    print("Time spent computing the correlation matrix: " + str(time_spent) + "s")
+
+    src = []
+    dst = []
+    weights = []
+    for i in range(W.shape[0]):
+        for j in range(W.shape[1]):
+            if W[i][j] > 0.001:
+                src.append(i)
+                dst.append(j)
+                weights.append(W[i][j])
+
+    edge_index = torch.LongTensor(np.array([src, dst]))
+    edge_weights = torch.tensor(weights).float()
+
+    data = {
+        'edge_index': edge_index,
+        'edge_weights': edge_weights
+    }
+
+    file_to_write = open(filepath, 'wb')
+    pickle.dump(data, file_to_write)
+    file_to_write.close()
+
+
+#TODO: Finish this implementations and make comparation
+#TODO: give option to sum identity matrix
+
+def adjacency_matrix(X, idxTrain, knn, N_movies, filepath):
+    pass
+
+
+def adjacency_normalized_matrix(X, idxTrain, knn, N_movies, filepath):
+    pass
+
+
+def laplacian_matrix(X, idxTrain, knn, N_movies, filepath):
+    pass
+
+
+def laplacian_normalized_matrix(X, idxTrain, knn, N_movies, filepath):
+    pass
