@@ -5,6 +5,8 @@ import pickle
 import scipy
 import pandas as pd
 
+hardlycorrelated = 0.2
+
 
 # Construct adyacency matrix
 def correlation_matrix(X, idxTrain, knn, N_movies, filepath):
@@ -77,15 +79,22 @@ def correlation_matrix(X, idxTrain, knn, N_movies, filepath):
 # Pearson correlation
 def pearson_correlation(X, idxTrain, KNN, N, filepath):
     start = time.time()
-    zeroTolerance = 1e-6
     XTrain = X[idxTrain, :]
     df = pd.DataFrame(XTrain)
     W = df.corr(method='pearson')
     W[np.isnan(W)] = 0
     W = np.matrix(W)
 
-    W[np.abs(W) < zeroTolerance] = 0.
+    '''
+    Queremos encontrar la similitud entre peliculas a partir de los ratings de los usuarios:
 
+    +1 => ambas se mueven en la misma dirección (si te gusta una peli te suele gustar la otra) => podemos decir que son similares
+     0 => no se encuentra correlación entre las variables
+    -1 => se mueven en direcciones opuestas (si te gusta esta, no te suele gustar la otra y viceversa). (ESTO ES CORRELACIÓN PERO QUIZÁ NO NOS INTERESA. NO DENOTA SIMILITUD)
+
+    '''
+    W[W < 0] = 0
+    W[np.abs(W) < hardlycorrelated] = 0.
     end = time.time()
     time_spent = end - start
     print("Time spent computing the correlation matrix: " + str(time_spent) + "s")
@@ -113,11 +122,38 @@ def pearson_correlation(X, idxTrain, KNN, N, filepath):
     file_to_write.close()
 
 
-#TODO: Finish this implementations and make comparation
-#TODO: give option to sum identity matrix
+#   TODO: Finish this implementations and make comparation
+#   TODO: give option to sum identity matrix
+#   TODO: normalize entry values between 0 and 1
 
 def adjacency_matrix(X, idxTrain, knn, N_movies, filepath):
-    pass
+    XTrain = X[idxTrain, :]
+    df = pd.DataFrame(XTrain)
+    W = df.corr(method='pearson')
+    W[np.isnan(W)] = 0
+    W = np.matrix(W)
+
+    '''
+    Queremos encontrar la similitud entre peliculas a partir de los ratings de los usuarios:
+
+    +1 => ambas se mueven en la misma dirección (si te gusta una peli te suele gustar la otra)
+     0 => no se encuentra correlación entre las variables
+    -1 => se mueven en direcciones opuestas (si te gusta esta, no te suele gustar la otra y viceversa). (ESTO ES CORRELACIÓN PERO QUIZÁ NO NOS INTERESA. NO DENOTA SIMILITUD)
+
+    '''
+    W[W < 0] = 0
+    print(W)
+    input()
+    print(W.shape[0] - np.count_nonzero(W.sum(axis=1)))
+    input()
+    W[W < hardlycorrelated] = 0.
+
+    W[W != 0] = 1
+
+    print(W)
+    input()
+    print(W.sum(axis=1))
+    input()
 
 
 def adjacency_normalized_matrix(X, idxTrain, knn, N_movies, filepath):

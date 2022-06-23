@@ -1,3 +1,4 @@
+from sympy import Q
 from signals_dataset import SignalsDataset
 
 # torch related libraries
@@ -7,7 +8,7 @@ from torch_geometric.nn import MessagePassing
 
 # functionalities
 from split_data import split_data
-from GSO import pearson_correlation, correlation_matrix
+from GSO import correlation_matrix, pearson_correlation, adjacency_matrix, adjacency_normalized_matrix, laplacian_matrix, laplacian_normalized_matrix
 from MSELoss import movieMSELoss
 from torch.utils.data import DataLoader
 
@@ -72,7 +73,7 @@ if not os.path.exists(test_dir):
     os.makedirs(test_dir)
 
 if not os.path.exists(GSO_filepath):
-    correlation_matrix(X, idxTrain, KNN, N_movies, GSO_filepath)
+    adjacency_matrix(X, idxTrain, KNN, N_movies, GSO_filepath)
 
 file_to_read = open(GSO_filepath, 'rb')
 data = pickle.load(file_to_read)
