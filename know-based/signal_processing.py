@@ -29,7 +29,7 @@ N_EPOCHS = 30
 VERBOSE = False
 
 # Preprocess data
-df_ratings = pd.read_csv("../data/raw/ml-latest-small/ratings.csv")
+df_ratings = pd.read_csv("../data/raw/ml-latest-small/ratings_clean.csv")
 
 movie_mapping = {idx: i for i, idx in enumerate(set(df_ratings.movieId.unique()))}
 df_ratings["movieId"] = [movie_mapping[idx] for idx in df_ratings["movieId"]]
