@@ -8,7 +8,7 @@ from torch_geometric.nn import MessagePassing
 
 # functionalities
 from split_data import split_data
-from GSO import correlation_matrix, pearson_correlation, adjacency_matrix, adjacency_normalized_matrix, laplacian_matrix, laplacian_normalized_matrix
+from GSO import pearson_correlation, adjacency_matrix, adjacency_normalized_matrix, laplacian_matrix, laplacian_normalized_matrix
 from MSELoss import movieMSELoss
 from torch.utils.data import DataLoader
 
@@ -25,7 +25,7 @@ import json
 TARGET_MOVIES = [257]
 KNN = 40
 TRAIN_SPLIT = 0.85
-N_EPOCHS = 30
+N_EPOCHS = 100
 VERBOSE = False
 
 # Preprocess data
@@ -60,9 +60,9 @@ N_movies = len(movie_mapping.keys())
 # Construct matrix users x movies with ratings as entries
 X = np.zeros((N_users, N_movies))
 for idx, row in df_ratings.iterrows():
-    X[int(row["userId"]), int(row["movieId"])] = row["rating"]
+    X[int(row["userId"]), int(row["movieId"])] = row["rating"]   # - 0.5) / 4.5
 
-GSO_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "precomputed_GSO/pearson_correlation.pkl")
+GSO_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "precomputed_GSO/normalized_laplacian_matrix.pkl")
 train_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/train")
 test_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/test")
 
@@ -73,7 +73,7 @@ if not os.path.exists(test_dir):
     os.makedirs(test_dir)
 
 if not os.path.exists(GSO_filepath):
-    adjacency_matrix(X, idxTrain, KNN, N_movies, GSO_filepath)
+    laplacian_normalized_matrix(X, idxTrain, KNN, GSO_filepath)
 
 file_to_read = open(GSO_filepath, 'rb')
 data = pickle.load(file_to_read)
@@ -287,5 +287,10 @@ x_axis = list(range(1, N_EPOCHS, 1))
 
 plt.plot(x_axis, train_history, label="Train RMSE")
 plt.plot(x_axis, test_history, label="Test RMSE")
+#  plt.plot(x_axis, [5 for _ in range(N_EPOCHS - 1)], "r-")    # red line to reference
+plt.axis([1, N_EPOCHS, 0, 30])
+plt.xlabel = "Epochs"
+plt.ylabel = "RMSE"
+plt.title = "Evolution of RMSE using Adjacency matrix as GSO"
 plt.legend()
 plt.show()
