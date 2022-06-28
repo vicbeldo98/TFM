@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import json
 
 TARGET_MOVIES = [257]
-KNN = 40
+KNN = 5
 TRAIN_SPLIT = 0.85
 N_EPOCHS = 100
 VERBOSE = False

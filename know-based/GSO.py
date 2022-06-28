@@ -5,10 +5,7 @@ import pandas as pd
 import math
 
 
-#   TODO: Finish this implementations and make comparation
-#   TODO: give option to sum identity matrix
 #   TODO: normalize entry values between 0 and 1
-#   TODO: use knn in the construction of W
 
 '''
     Queremos encontrar la similitud entre peliculas a partir de los ratings de los usuarios:
@@ -28,7 +25,7 @@ def compute_pearson(XTrain):
     df = pd.DataFrame(XTrain)
     W = df.corr(method='pearson')
     W[np.isnan(W)] = 0
-    W = np.matrix(W)
+    W = np.array(W)
     return W
 
 
@@ -53,6 +50,19 @@ def to_COO(W):
     return data
 
 
+# https://stackoverflow.com/questions/59402551/is-there-a-way-to-get-the-top-k-values-per-row-of-a-numpy-array-python
+def sparsify(W, KNN):
+    def top_k_values(array):
+        indexes = array.argsort()[-KNN:][::-1]
+        A = set(indexes)
+        B = set(list(range(array.shape[0])))
+        array[list(B.difference(A))] = 0
+        return array
+
+    result = np.apply_along_axis(top_k_values, 1, W)
+    return result
+
+
 def pearson_correlation(X, idxTrain, knn, filepath):
     XTrain = X[idxTrain, :]
     W = compute_pearson(XTrain)
@@ -62,6 +72,9 @@ def pearson_correlation(X, idxTrain, knn, filepath):
 
     # Filtrar valores con correlación muy pequeña
     W[W < hardlycorrelated] = 0
+
+    # Dispersar grafo a los KNN vecinos más próximos
+    W = sparsify(W, knn)
 
     print("Pearson correlation")
     print(W)
@@ -85,6 +98,9 @@ def adjacency_matrix(X, idxTrain, knn, filepath):
 
     # Todos los valores que no sean 0 son 1 (OBJETIVO: matriz de adyacencia)
     W[W != 0] = 1
+
+    # Dispersar grafo a los KNN vecinos más próximos
+    W = sparsify(W, knn)
 
     print("Matriz de adyacencia")
     print(W)
@@ -116,6 +132,10 @@ def laplacian_matrix(X, idxTrain, knn, filepath):
         diag_matrix[row][row] = number
 
     laplacian_matrix = diag_matrix - A
+
+    # Dispersar grafo a los KNN vecinos más próximos
+    laplacian_matrix = sparsify(laplacian_matrix, knn)
+
     print("Laplacian matrix")
     print(laplacian_matrix)
 
@@ -147,6 +167,10 @@ def adjacency_normalized_matrix(X, idxTrain, knn, filepath):
         diag_matrix[row][row] = power_inverse
 
     adjacency_normalized_matrix = diag_matrix * A * diag_matrix
+
+    # Dispersar grafo a los KNN vecinos más próximos
+    adjacency_normalized_matrix = sparsify(adjacency_normalized_matrix, knn)
+
     print("Adjacency normalized matrix")
     print(adjacency_normalized_matrix)
 
@@ -186,6 +210,10 @@ def laplacian_normalized_matrix(X, idxTrain, knn, filepath):
         diag_matrix[row][row] = power_inverse
 
     laplacian_normalized_matrix = diag_matrix * laplacian_matrix * diag_matrix
+
+    # Dispersar grafo a los KNN vecinos más próximos
+    laplacian_normalized_matrix = sparsify(laplacian_normalized_matrix, knn)
+
     print("Laplacian normalized matrix")
     print(laplacian_normalized_matrix)
     data = to_COO(laplacian_normalized_matrix)
