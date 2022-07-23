@@ -186,10 +186,12 @@ class Decoder(torch.nn.Module):
     def __init__(self, out_features=64, dim_readout=1):
         super().__init__()
         self.lin1 = Linear(out_features, dim_readout)
+        self.lin2 = Linear(N_movies, 1)
 
     def forward(self, z):
         z = self.lin1(z)
-        z = z.reshape(-1, N_movies).permute(1, 0)
+        z = z.reshape(-1, N_movies).relu()
+        z = self.lin2(z)
         return z
 
 
@@ -227,7 +229,7 @@ def train_step(x, y):
     optimizer.zero_grad()
     pred = model(x, edge_index, edge_weights)
     target = y
-    loss = movieMSELoss(pred, target, TARGET_MOVIES)
+    loss = movieMSELoss(pred, target)
     loss.backward()
     optimizer.step()
     return float(loss)
@@ -238,7 +240,7 @@ def eval(x, y):
     model.eval()
     pred = model(x, edge_index, edge_weights)
     pred = pred.clamp(min=0, max=5)
-    rmse = movieMSELoss(pred, y, TARGET_MOVIES)
+    rmse = movieMSELoss(pred, y)
     return float(rmse)
 
 
@@ -258,7 +260,7 @@ for epoch in range(1, N_EPOCHS):
     for _, data in enumerate(train_dataloader):
         xTrain, yTrain = data
         xTrain = xTrain.float().t()
-        yTrain = yTrain.float().t()
+        yTrain = yTrain.float()
         train_rmse += train_step(xTrain, yTrain)
         total_train_steps += 1
     mean_train = float(train_rmse / total_train_steps)
@@ -268,7 +270,7 @@ for epoch in range(1, N_EPOCHS):
     for _, data in enumerate(test_dataloader):
         xTest, yTest = data
         xTest = xTest.float().t()
-        yTest = yTest.float().t()
+        yTest = yTest.float()
         test_rmse += eval(xTest, yTest)
         total_test_steps += 1
     mean_test = float(test_rmse / total_test_steps)

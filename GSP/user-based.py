@@ -200,10 +200,13 @@ class Decoder(torch.nn.Module):
     def __init__(self, out_features=64, dim_readout=1):
         super().__init__()
         self.lin1 = Linear(out_features, dim_readout)
+        self.lin2 = Linear(N_users, 1)
 
     def forward(self, z):
         z = self.lin1(z)
-        z = z.reshape(-1, N_users).permute(1, 0)
+        z = z.reshape(-1, N_users).relu()
+        z = self.lin2(z)
+
         return z
 
 
@@ -237,11 +240,12 @@ if VERBOSE:
 
 
 def train_step(x, y):
+    print("TRAIN STEP")
     model.train()
     optimizer.zero_grad()
     pred = model(x, edge_index, edge_weights)
     target = y
-    loss = movieMSELoss(pred, target, TARGET_USERS)
+    loss = movieMSELoss(pred, target)
     loss.backward()
     optimizer.step()
     return float(loss)
@@ -249,10 +253,11 @@ def train_step(x, y):
 
 @torch.no_grad()
 def eval(x, y):
+    print("EVAL STEP")
     model.eval()
     pred = model(x, edge_index, edge_weights)
     pred = pred.clamp(min=0, max=5)
-    rmse = movieMSELoss(pred, y, TARGET_USERS)
+    rmse = movieMSELoss(pred, y)
     return float(rmse)
 
 
@@ -272,7 +277,7 @@ for epoch in range(1, N_EPOCHS):
     for _, data in enumerate(train_dataloader):
         xTrain, yTrain = data
         xTrain = xTrain.float().t()
-        yTrain = yTrain.float().t()
+        yTrain = yTrain[:, TARGET_USERS].float()
         train_rmse += train_step(xTrain, yTrain)
         total_train_steps += 1
     mean_train = float(train_rmse / total_train_steps)
@@ -282,7 +287,7 @@ for epoch in range(1, N_EPOCHS):
     for _, data in enumerate(test_dataloader):
         xTest, yTest = data
         xTest = xTest.float().t()
-        yTest = yTest.float().t()
+        yTest = yTest[:, TARGET_USERS].float()
         test_rmse += eval(xTest, yTest)
         total_test_steps += 1
     mean_test = float(test_rmse / total_test_steps)
@@ -317,6 +322,6 @@ plt.plot(x_axis, test_history, label="Test RMSE")
 plt.axis([1, N_EPOCHS, 0, 10])
 plt.xlabel("Epochs")
 plt.ylabel("RMSE")
-plt.title("Evolution of RMSE in training for Men in Black (1997)")
+plt.title("Evolution of RMSE in training for user 196")
 plt.legend()
 plt.show()

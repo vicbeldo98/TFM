@@ -1,6 +1,7 @@
 import torch
 
 
-def movieMSELoss(yHat, y, idxMovie):
+def movieMSELoss(yHat, y):
+    print(yHat)
     mse = torch.nn.MSELoss()
-    return mse(yHat[idxMovie, :], y[idxMovie, :])
+    return mse(yHat, y)
