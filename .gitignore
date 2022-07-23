@@ -2,6 +2,6 @@ data/*
 __pycache__
 models/*
 pytorch_geometric
-know-based/data/*
-know-based/models/*
-know-based/precomputed_GSO/*
+GSP/data/*
+GSP/models/*
+GSP/precomputed_GSO/*
