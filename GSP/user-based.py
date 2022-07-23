@@ -21,12 +21,10 @@ import matplotlib.pyplot as plt
 import json
 import argparse
 import math
-from sklearn.model_selection import train_test_split
 import random
 
 TARGET_USERS = [196]
 KNN = 5
-TRAIN_SPLIT = 0.85
 N_EPOCHS = 100
 VERBOSE = False
 
@@ -56,29 +54,29 @@ for idx, row in df_ratings.iterrows():
     X[int(row["userId"]), int(row["movieId"])] = row["rating"]   # - 0.5) / 4.5
 X = np.transpose(X)
 
+
 # Split data into train and test IN A BALANCED WAY
 total_idx = np.arange(nTotal)
-idx_with_target_user = (X[:, TARGET_USERS[0]] != 0).nonzero()[0]
+idx_with_target_user = np.array((X[:, TARGET_USERS[0]] != 0).nonzero()[0])
 signals_target_user = len(idx_with_target_user)
-signals_target_user_train = signals_target_user * 0.7
+signals_target_user_train = int(signals_target_user * 0.7)
 
-if len(idx_with_target_user) < 10:
+if signals_target_user < 10:
     print("INSUFFICIENT NUMBER OF SIGNALS TO TRAIN")
     raise Exception
 
 idxTrainSIGNIFICANT = idx_with_target_user[0:signals_target_user_train]
 idxTestSIGNIFICANT = idx_with_target_user[signals_target_user_train:signals_target_user]
+idx_left = list(set(total_idx) - set(idx_with_target_user))
 
-idx_left = list(set(total_idx).difference_update(set(idx_with_target_user)))
-
-idxTrainINSIGNIFICANT, idxTestINSIGNIFICANT = train_test_split(idx_left, test_size=1 - TRAIN_SPLIT)
-
-idxTrain = random.shuffle(idxTrainSIGNIFICANT + idxTrainINSIGNIFICANT)
-idxTest = random.shuffle(idxTestSIGNIFICANT + idxTestINSIGNIFICANT)
+idxTrain = list(idxTrainSIGNIFICANT) + list(idx_left)
+idxTest = idxTestSIGNIFICANT.copy()
+# left insignificant ones can go into train in order to build a GSO
+random.shuffle(idxTrain)
+random.shuffle(idxTest)
 
 nTrain = len(idxTrain)
 nTest = len(idxTest)
-
 print("Number of total signals to train: " + str(nTrain))
 print("Number of total signals to test: " + str(nTest))
 
