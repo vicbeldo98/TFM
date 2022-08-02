@@ -1,3 +1,4 @@
+import re
 from signals_dataset import SignalsDataset
 
 # torch related libraries
@@ -23,9 +24,9 @@ import argparse
 import math
 
 TARGET_MOVIES = [257]
-KNN = 5
+KNN = 500
 TRAIN_SPLIT = 0.85
-N_EPOCHS = 100
+N_EPOCHS = 40
 VERBOSE = False
 
 parser = argparse.ArgumentParser()
@@ -65,7 +66,7 @@ N_movies = len(movie_mapping.keys())
 # Construct matrix users x movies with ratings as entries
 X = np.zeros((N_users, N_movies))
 for idx, row in df_ratings.iterrows():
-    X[int(row["userId"]), int(row["movieId"])] = row["rating"]   # - 0.5) / 4.5
+    X[int(row["userId"]), int(row["movieId"])] = row["rating"] #- 1.0) / 4.0
 
 GSO_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "precomputed_GSO/gso.pkl")
 train_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/train")
@@ -121,8 +122,8 @@ class MyConv(MessagePassing):
         self.K = K
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = torch.nn.Parameter(torch.Tensor(self.out_features, self.K, self.in_features))
-        self.bias = torch.nn.parameter.Parameter(torch.Tensor(self.out_features))
+        self.weight = torch.nn.Parameter(torch.Tensor(self.out_features, self.K, self.in_features), requires_grad=True)
+        self.bias = torch.nn.parameter.Parameter(torch.Tensor(self.out_features), requires_grad=True)
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -176,9 +177,12 @@ class Encoder(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.conv1 = MyConv()
+        self.conv1_bn=torch.nn.BatchNorm1d(N_movies)
+
 
     def forward(self, x, edge_index, edge_weights):
-        x = self.conv1(x, edge_index, edge_weights).relu()
+        x = self.conv1(x, edge_index, edge_weights)
+        x = self.conv1_bn(x).relu()
         return x
 
 
@@ -188,11 +192,11 @@ class Decoder(torch.nn.Module):
         self.lin1 = Linear(out_features, dim_readout)
         self.lin2 = Linear(N_movies, 1)
 
-    def forward(self, z):
-        z = self.lin1(z)
-        z = z.reshape(-1, N_movies).relu()
-        z = self.lin2(z)
-        return z
+    def forward(self, x):
+        x = self.lin1(x).relu()
+        x = x.reshape(-1, N_movies)
+        x = self.lin2(x)
+        return x
 
 
 class Model(torch.nn.Module):
@@ -201,14 +205,15 @@ class Model(torch.nn.Module):
         self.encoder = Encoder()
         self.decoder = Decoder()
 
-    def forward(self, x_dict, edge_index_dict, edge_label_index):
-        y = self.encoder(x_dict, edge_index_dict, edge_label_index)
-        z_dict = self.decoder(y)
+    def forward(self, x, edge_index_dict, edge_label_index):
+        x = self.encoder(x, edge_index_dict, edge_label_index)
+        x = self.decoder(x)
+        # z_dict = z_dict.clone().detach().requires_grad_(True)
         if VERBOSE:
             print("After linear layer and reshape:")
-            print(z_dict.shape)
-            print(z_dict)
-        return z_dict
+            print(x.shape)
+            print(x)
+        return x
 
 
 model = Model()
@@ -216,8 +221,8 @@ model = Model()
 with torch.no_grad():
     model.encoder(next(iter(train_dataloader))[0].float().t(), edge_index, edge_weights)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
+#scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20)
 
 if VERBOSE:
     print("edge_index: " + str(edge_index.shape))
@@ -226,10 +231,11 @@ if VERBOSE:
 
 def train_step(x, y):
     model.train()
-    optimizer.zero_grad()
+    
     pred = model(x, edge_index, edge_weights)
     target = y
     loss = movieMSELoss(pred, target)
+    optimizer.zero_grad()
     loss.backward()
     optimizer.step()
     return float(loss)
@@ -239,7 +245,7 @@ def train_step(x, y):
 def eval(x, y):
     model.eval()
     pred = model(x, edge_index, edge_weights)
-    pred = pred.clamp(min=0, max=5)
+    pred = pred.clamp(min=1, max=5)
     rmse = movieMSELoss(pred, y)
     return float(rmse)
 
@@ -260,7 +266,7 @@ for epoch in range(1, N_EPOCHS):
     for _, data in enumerate(train_dataloader):
         xTrain, yTrain = data
         xTrain = xTrain.float().t()
-        yTrain = yTrain.float()
+        yTrain = yTrain[:, TARGET_MOVIES].float()
         train_rmse += train_step(xTrain, yTrain)
         total_train_steps += 1
     mean_train = float(train_rmse / total_train_steps)
@@ -270,12 +276,11 @@ for epoch in range(1, N_EPOCHS):
     for _, data in enumerate(test_dataloader):
         xTest, yTest = data
         xTest = xTest.float().t()
-        yTest = yTest.float()
+        yTest = yTest[:, TARGET_MOVIES].float()
         test_rmse += eval(xTest, yTest)
         total_test_steps += 1
     mean_test = float(test_rmse / total_test_steps)
     test_history.append(math.sqrt(mean_test))
-    scheduler.step(mean_test)
 
     if mean_test < best_test_accuracy:
         best_train_accuracy = math.sqrt(mean_train)
@@ -288,7 +293,6 @@ for epoch in range(1, N_EPOCHS):
         torch.save(model, last_model_path)
 
     lr = optimizer.state_dict()['param_groups'][0]['lr']
-    #   if epoch % 10 == 0:
     print(f'Epoch: {epoch:03d}, Train_rmse: {math.sqrt(mean_train):.4f}, Test_rmse: {math.sqrt(mean_test):.4f}, LR: {lr:.10f}')
 
 print("Finished trainning...Evaluating model")
@@ -301,7 +305,6 @@ x_axis = list(range(1, N_EPOCHS, 1))
 
 plt.plot(x_axis, train_history, label="Train RMSE")
 plt.plot(x_axis, test_history, label="Test RMSE")
-#  plt.plot(x_axis, [5 for _ in range(N_EPOCHS - 1)], "r-")    # red line to reference
 plt.axis([1, N_EPOCHS, 0, 10])
 plt.xlabel("Epochs")
 plt.ylabel("RMSE")

@@ -5,8 +5,6 @@ import pandas as pd
 import math
 
 
-#   TODO: normalize entry values between 0 and 1
-
 '''
     Queremos encontrar la similitud entre peliculas a partir de los ratings de los usuarios:
 
