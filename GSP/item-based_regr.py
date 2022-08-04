@@ -24,9 +24,9 @@ import argparse
 import math
 
 TARGET_MOVIES = [257]
-KNN = 500
+KNN = 5
 TRAIN_SPLIT = 0.85
-N_EPOCHS = 40
+N_EPOCHS = 100
 VERBOSE = False
 
 parser = argparse.ArgumentParser()
@@ -222,7 +222,7 @@ with torch.no_grad():
     model.encoder(next(iter(train_dataloader))[0].float().t(), edge_index, edge_weights)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
-#scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20)
 
 if VERBOSE:
     print("edge_index: " + str(edge_index.shape))
@@ -269,8 +269,8 @@ for epoch in range(1, N_EPOCHS):
         yTrain = yTrain[:, TARGET_MOVIES].float()
         train_rmse += train_step(xTrain, yTrain)
         total_train_steps += 1
-    mean_train = float(train_rmse / total_train_steps)
-    train_history.append(math.sqrt(mean_train))
+    mean_train = float(math.sqrt(train_rmse / total_train_steps))
+    train_history.append(mean_train)
     test_rmse = 0
     total_test_steps = 0
     for _, data in enumerate(test_dataloader):
@@ -279,21 +279,22 @@ for epoch in range(1, N_EPOCHS):
         yTest = yTest[:, TARGET_MOVIES].float()
         test_rmse += eval(xTest, yTest)
         total_test_steps += 1
-    mean_test = float(test_rmse / total_test_steps)
-    test_history.append(math.sqrt(mean_test))
+    mean_test = float(math.sqrt(test_rmse / total_test_steps))
+    scheduler.step(mean_test)
+    test_history.append(mean_test)
 
     if mean_test < best_test_accuracy:
-        best_train_accuracy = math.sqrt(mean_train)
-        best_test_accuracy = math.sqrt(mean_test)
+        best_train_accuracy = mean_train
+        best_test_accuracy = mean_test
         torch.save(model, best_model_path)
 
     if epoch == N_EPOCHS - 1:
-        last_train_accuracy = math.sqrt(mean_train)
-        last_test_accuracy = math.sqrt(mean_test)
+        last_train_accuracy = mean_train
+        last_test_accuracy = mean_test
         torch.save(model, last_model_path)
 
     lr = optimizer.state_dict()['param_groups'][0]['lr']
-    print(f'Epoch: {epoch:03d}, Train_rmse: {math.sqrt(mean_train):.4f}, Test_rmse: {math.sqrt(mean_test):.4f}, LR: {lr:.10f}')
+    print(f'Epoch: {epoch:03d}, Train_rmse: {mean_train:.4f}, Test_rmse: {mean_test:.4f}, LR: {lr:.10f}')
 
 print("Finished trainning...Evaluating model")
 print(f"Best model has train RMSE: {best_train_accuracy}")

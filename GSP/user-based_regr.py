@@ -174,7 +174,6 @@ class MyConv(MessagePassing):
         h = self.weight.reshape([self.out_features, self.K * self.in_features]).permute(1, 0)
 
         y = torch.matmul(reshaped_conv, h)
-
         if self.bias is not None:
             y = y + self.bias
         if VERBOSE:
@@ -195,10 +194,8 @@ class Encoder(torch.nn.Module):
 
 
     def forward(self, x, edge_index, edge_weights):
-        print("ENCODER")
         x = self.conv1(x, edge_index, edge_weights)
         x = self.conv1_bn(x)
-        print("ENCODER END")
         return x
 
 
@@ -245,7 +242,6 @@ if VERBOSE:
 
 
 def train_step(x, y):
-    print("TRAIN STEP")
     model.train()
     optimizer.zero_grad()
     pred = model(x, edge_index, edge_weights)
@@ -253,17 +249,16 @@ def train_step(x, y):
     loss = movieMSELoss(pred, target)
     loss.backward()
     optimizer.step()
-    return float(loss)
+    return float(math.sqrt(loss))
 
 
 @torch.no_grad()
 def eval(x, y):
-    print("EVAL STEP")
     model.eval()
     pred = model(x, edge_index, edge_weights)
     pred = pred.clamp(min=1, max=5)
     rmse = movieMSELoss(pred, y)
-    return float(rmse)
+    return float(math.sqrt(rmse))
 
 
 best_model_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models/gps_pearson_best.pth")
@@ -286,7 +281,7 @@ for epoch in range(1, N_EPOCHS):
         train_rmse += train_step(xTrain, yTrain)
         total_train_steps += 1
     mean_train = float(train_rmse / total_train_steps)
-    train_history.append(math.sqrt(mean_train))
+    train_history.append(mean_train)
     test_rmse = 0
     total_test_steps = 0
     for _, data in enumerate(test_dataloader):
@@ -296,22 +291,22 @@ for epoch in range(1, N_EPOCHS):
         test_rmse += eval(xTest, yTest)
         total_test_steps += 1
     mean_test = float(test_rmse / total_test_steps)
-    test_history.append(math.sqrt(mean_test))
+    test_history.append(mean_test)
     scheduler.step(mean_test)
 
     if mean_test < best_test_accuracy:
-        best_train_accuracy = math.sqrt(mean_train)
-        best_test_accuracy = math.sqrt(mean_test)
+        best_train_accuracy = mean_train
+        best_test_accuracy = mean_test
         torch.save(model, best_model_path)
 
     if epoch == N_EPOCHS - 1:
-        last_train_accuracy = math.sqrt(mean_train)
-        last_test_accuracy = math.sqrt(mean_test)
+        last_train_accuracy = mean_train
+        last_test_accuracy = mean_test
         torch.save(model, last_model_path)
 
     lr = optimizer.state_dict()['param_groups'][0]['lr']
     #   if epoch % 10 == 0:
-    print(f'Epoch: {epoch:03d}, Train_rmse: {math.sqrt(mean_train):.4f}, Test_rmse: {math.sqrt(mean_test):.4f}, LR: {lr:.10f}')
+    print(f'Epoch: {epoch:03d}, Train_rmse: {mean_train:.4f}, Test_rmse: {mean_test:.4f}, LR: {lr:.10f}')
 
 print("Finished trainning...Evaluating model")
 print(f"Best model has train RMSE: {best_train_accuracy}")
