@@ -24,9 +24,9 @@ import argparse
 import math
 
 TARGET_MOVIES = [257]
-KNN = 500
+KNN = 5
 TRAIN_SPLIT = 0.85
-N_EPOCHS = 40
+N_EPOCHS = 100
 VERBOSE = False
 
 classes = [1.0, 2.0, 3.0, 4.0, 5.0]
@@ -208,10 +208,8 @@ class Encoder(torch.nn.Module):
 
 
     def forward(self, x, edge_index, edge_weights):
-        print("ENCODER")
         x = self.conv1(x, edge_index, edge_weights)
         x = self.conv1_bn(x).relu()
-        print("ENCODER END")
         return x
 
 
@@ -314,7 +312,7 @@ for epoch in range(1, N_EPOCHS):
     test_history.append(mean_test)
     scheduler.step(mean_test)
 
-    '''if mean_test < best_test_accuracy:
+    if mean_test < best_test_accuracy:
         best_train_accuracy = mean_train
         best_test_accuracy = mean_test
         torch.save(model, best_model_path)
@@ -322,24 +320,24 @@ for epoch in range(1, N_EPOCHS):
     if epoch == N_EPOCHS - 1:
         last_train_accuracy = mean_train
         last_test_accuracy = mean_test
-        torch.save(model, last_model_path)'''
+        torch.save(model, last_model_path)
 
     lr = optimizer.state_dict()['param_groups'][0]['lr']
-    print(f'Epoch: {epoch:03d}, Train_rmse: {mean_train:.4f}, Test_rmse: {mean_test:.4f}, LR: {lr:.10f}')
+    print(f'Epoch: {epoch:03d}, Train_acc: {mean_train:.4f}, Test_acc: {mean_test:.4f}, LR: {lr:.10f}')
 
 print("Finished trainning...Evaluating model")
-print(f"Best model has train RMSE: {best_train_accuracy}")
-print(f"Best model has test RMSE: {best_test_accuracy}")
-print(f"Last model has train RMSE: {last_train_accuracy}")
-print(f"Last model has test RMSE: {last_test_accuracy}")
+print(f"Best model has train acuracy: {best_train_accuracy}")
+print(f"Best model has test acuracy: {best_test_accuracy}")
+print(f"Last model has train acuracy: {last_train_accuracy}")
+print(f"Last model has test acuracy: {last_test_accuracy}")
 
 x_axis = list(range(1, N_EPOCHS, 1))
 
-plt.plot(x_axis, train_history, label="Train RMSE")
-plt.plot(x_axis, test_history, label="Test RMSE")
-plt.axis([1, N_EPOCHS, 0, 10])
+plt.plot(x_axis, train_history, label="Train acuracy")
+plt.plot(x_axis, test_history, label="Test acuracy")
+plt.axis([1, N_EPOCHS, 0, 1])
 plt.xlabel("Epochs")
-plt.ylabel("RMSE")
-plt.title("Evolution of RMSE in training for Men in Black (1997)")
+plt.ylabel("Accuracy")
+plt.title("Evolution of accuracy in training for Men in Black (1997)")
 plt.legend()
 plt.show()

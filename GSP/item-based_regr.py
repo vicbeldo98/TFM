@@ -20,19 +20,13 @@ import pickle
 import os
 import matplotlib.pyplot as plt
 import json
-import argparse
 import math
 
 TARGET_MOVIES = [257]
 KNN = 5
 TRAIN_SPLIT = 0.85
-N_EPOCHS = 100
+N_EPOCHS = 10
 VERBOSE = False
-
-parser = argparse.ArgumentParser()
-parser.add_argument('-gso', metavar="GSO matrix")
-parsed_args = parser.parse_args()
-args = vars(parsed_args)
 
 # Preprocess data
 df_ratings = pd.read_csv("../data/raw/ml-100K/ratings.csv")
@@ -79,22 +73,19 @@ if not os.path.exists(test_dir):
     os.makedirs(test_dir)
 
 if not os.path.exists(GSO_filepath):
-    if args['gso'] == "a":
-        adjacency_matrix(X, idxTrain, KNN, GSO_filepath)
-    elif args['gso'] == "l":
-        laplacian_matrix(X, idxTrain, KNN, GSO_filepath)
-    elif args['gso'] == "na":
-        adjacency_normalized_matrix(X, idxTrain, KNN, GSO_filepath)
-    elif args['gso'] == "nl":
-        laplacian_normalized_matrix(X, idxTrain, KNN, GSO_filepath)
-    else:
-        pearson_correlation(X, idxTrain, KNN, GSO_filepath)
+    #adjacency_matrix(X, idxTrain, KNN, GSO_filepath)
+    #laplacian_matrix(X, idxTrain, KNN, GSO_filepath)
+    #adjacency_normalized_matrix(X, idxTrain, KNN, GSO_filepath)
+    #laplacian_normalized_matrix(X, idxTrain, KNN, GSO_filepath)
+    pearson_correlation(X, idxTrain, KNN, GSO_filepath)
 
 file_to_read = open(GSO_filepath, 'rb')
 data = pickle.load(file_to_read)
 file_to_read.close()
 
 edge_index, edge_weights = data['edge_index'], data['edge_weights']
+print("GSO WEIGHTS")
+print(edge_weights)
 
 split_data(X, idxTrain, idxTest, TARGET_MOVIES, train_dir, test_dir)
 
@@ -117,7 +108,7 @@ print("Number of testing signals: " + str(samples_test))
 
 
 class MyConv(MessagePassing):
-    def __init__(self, in_features=1, out_features=64, K=5):
+    def __init__(self, in_features=1, out_features=16, K=5):
         super().__init__(aggr='add')
         self.K = K
         self.in_features = in_features
@@ -187,7 +178,7 @@ class Encoder(torch.nn.Module):
 
 
 class Decoder(torch.nn.Module):
-    def __init__(self, out_features=64, dim_readout=1):
+    def __init__(self, out_features=16, dim_readout=1):
         super().__init__()
         self.lin1 = Linear(out_features, dim_readout)
         self.lin2 = Linear(N_movies, 1)

@@ -33,9 +33,10 @@ def to_COO(W):
     weights = []
     for i in range(W.shape[0]):
         for j in range(W.shape[1]):
-            src.append(i)
-            dst.append(j)
-            weights.append(W[i, j])
+            if W[i, j]!=0:
+                src.append(i)
+                dst.append(j)
+                weights.append(W[i, j])
 
     edge_index = torch.LongTensor(np.array([src, dst]))
     edge_weights = torch.tensor(weights).float()
@@ -131,17 +132,20 @@ def laplacian_matrix(X, idxTrain, knn, filepath):
 
     laplacian_matrix = diag_matrix - A
 
-    # Dispersar grafo a los KNN vecinos más próximos
-    laplacian_matrix = sparsify(laplacian_matrix, knn)
+    if np.sum(laplacian_matrix) == 0:
+        # Dispersar grafo a los KNN vecinos más próximos
+        laplacian_matrix = sparsify(laplacian_matrix, knn)
 
-    print("Laplacian matrix")
-    print(laplacian_matrix)
+        print("Laplacian matrix")
+        print(laplacian_matrix)
 
-    data = to_COO(laplacian_matrix)
+        data = to_COO(laplacian_matrix)
 
-    file_to_write = open(filepath, 'wb')
-    pickle.dump(data, file_to_write)
-    file_to_write.close()
+        file_to_write = open(filepath, 'wb')
+        pickle.dump(data, file_to_write)
+        file_to_write.close()
+    else:
+        print("Something is wrong with laplacian matrix")
 
 
 def adjacency_normalized_matrix(X, idxTrain, knn, filepath):
@@ -161,8 +165,12 @@ def adjacency_normalized_matrix(X, idxTrain, knn, filepath):
 
     for row in range(A.shape[0]):
         number = np.sum(A[row])
-        power_inverse = 1 / (math.sqrt(number))
-        diag_matrix[row][row] = power_inverse
+        # if any movie does not have any correlations
+        if number == 0:
+            diag_matrix[row][row] = 1
+        else:
+            power_inverse = 1 / (math.sqrt(number))
+            diag_matrix[row][row] = power_inverse
 
     adjacency_normalized_matrix = diag_matrix * A * diag_matrix
 
@@ -204,8 +212,12 @@ def laplacian_normalized_matrix(X, idxTrain, knn, filepath):
 
     for row in range(A.shape[0]):
         number = np.sum(A[row])
-        power_inverse = 1 / (math.sqrt(number))
-        diag_matrix[row][row] = power_inverse
+        # if any movie does not have any correlations
+        if number == 0:
+            diag_matrix[row][row] = 1
+        else:
+            power_inverse = 1 / (math.sqrt(number))
+            diag_matrix[row][row] = power_inverse
 
     laplacian_normalized_matrix = diag_matrix * laplacian_matrix * diag_matrix
 
