@@ -16,7 +16,7 @@ import math
 '''
 
 
-hardlycorrelated = 0.2
+hardlycorrelated = 0.02
 
 
 def compute_pearson(XTrain):
