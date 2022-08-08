@@ -7,7 +7,7 @@ from model import Model
 import math
 torch.manual_seed(0)
 
-EPOCHS = 300
+EPOCHS = 200
 MODEL_PATH = 'models/sageconv'
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 dataset = MovieGraph(root='../data')
@@ -31,21 +31,6 @@ train_data, val_data, test_data = T.RandomLinkSplit(
     rev_edge_types=[('movie', 'rev_rates', 'user')],
 )(data)
 
-print(train_data)
-print(val_data)
-print(test_data)
-
-# We have an unbalanced dataset with many labels for rating 3 and 4, and very few for 0 and 1. Therefore we use a weighted MSE loss.
-# Count the frequency of each value in an array of non-negative ints: https://pytorch.org/docs/stable/generated/torch.bincount.html
-weight = torch.bincount(train_data['user', 'movie'].edge_label)
-# Take the maximum number of appearences of a rate and normalize all with that number
-weight = weight.max() / weight
-
-
-def weighted_mse_loss(pred, target, weight=None):
-    weight = 1. if weight is None else weight[target].to(pred.dtype)
-    return (weight * (pred - target.to(pred.dtype)).pow(2)).mean()
-
 model = Model(data, hidden_channels=32).to(device)
 
 # Due to lazy initialization, we need to run one model step so the number of parameters can be inferred:
@@ -53,7 +38,6 @@ with torch.no_grad():
     model.encoder(train_data.x_dict, train_data.edge_index_dict)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-#scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=10)
 
 def train():
     model.train()
@@ -65,22 +49,21 @@ def train():
     '''
 
     pred = model(train_data.x_dict, train_data.edge_index_dict, train_data['user', 'movie'].edge_label_index)
-    target = train_data['user', 'movie'].edge_label
-    loss = weighted_mse_loss(pred, target, weight)
+    target = train_data['user', 'movie'].edge_label.float()
+    loss = F.mse_loss(pred, target)
     loss.backward()
     optimizer.step()
     return float(loss)
 
 
 @torch.no_grad()
-def test(part, val=False):
+def test(part):
     model.eval()
     pred = model(part.x_dict, part.edge_index_dict, part['user', 'movie'].edge_label_index)
-    pred = pred.clamp(min=0, max=5)
+    pred = torch.round(pred).clamp(min=0, max=5)
     target = part['user', 'movie'].edge_label.float()
     loss = F.mse_loss(pred, target)
-    '''if val:
-        scheduler.step(loss)'''
+    print(pred.unique(return_counts=True)[1])
     rmse = loss.sqrt()
     return float(rmse)
 
@@ -99,7 +82,7 @@ def main():
 
         train_rmse = test(train_data)
         train_rmse_list.append(train_rmse)
-        val_rmse = test(val_data, val=True)
+        val_rmse = test(val_data)
         val_rmse_list.append(val_rmse)
         test_rmse = test(test_data)
         test_rsme_list.append(test_rmse)

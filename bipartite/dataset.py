@@ -59,7 +59,7 @@ class MovieGraph(InMemoryDataset):
 
         # Add semantic information to the embeddings
         from sentence_transformers import SentenceTransformer
-        model = SentenceTransformer('all-MiniLM-L6-v2')
+        model = SentenceTransformer('sentence-transformers/all-distilroberta-v1')
         with torch.no_grad():
             emb = model.encode(df_mov['movie title'].values, show_progress_bar=True,
                                convert_to_tensor=True).cpu()

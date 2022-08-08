@@ -49,18 +49,22 @@ df_ratings = pd.read_csv('../data/raw/ml-100K/ratings.csv')
 movie_mapping = {idx: i for i, idx in enumerate(df_movies.movieId.unique())}
 user_mapping = {idx: i for i, idx in enumerate(df_user.userId.unique())}
 df_movies["movieId"] = [movie_mapping[idx] for idx in df_movies["movieId"]]
+df_ratings["movieId"] = [movie_mapping[idx] for idx in df_ratings["movieId"]]
+df_ratings["userId"] = [movie_mapping[idx] for idx in df_ratings["userId"]]
 
 real_user = user_mapping[USERID]
 len_movies = len(data['movie'].x)
 
-# TODO: take away already seen movies
+already_seen = list(df_ratings[df_ratings["userId"]==real_user]["movieId"])
+
 row = torch.tensor([real_user] * len_movies)
 col = torch.arange(len_movies)
 
 edge_label_index = torch.stack([row, col], dim=0)
 pred = model(data.x_dict, data.edge_index_dict, edge_label_index)
 pred = pred.clamp(min=0, max=5)
-print(pred)
+pred[already_seen] = 0
+
 idx_max = torch.topk(pred, NUM_MOVIES).indices
 
 print('Recommended movies for userId ' + str(USERID))
