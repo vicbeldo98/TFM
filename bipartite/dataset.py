@@ -55,17 +55,8 @@ class MovieGraph(InMemoryDataset):
 
         # Map userId with indexes
         user_mapping = {idx: i for i, idx in enumerate(df_user.userId.unique())}
-    
-        genres = df_mov.iloc[:, -19:].to_numpy()
-        genres = torch.from_numpy(genres).to(torch.float)
-
-        # Add semantic information to the embeddings
-        model = SentenceTransformer('sentence-transformers/all-distilroberta-v1')
-        with torch.no_grad():
-            emb = model.encode(df_mov['movie title'].values, show_progress_bar=True,
-                               convert_to_tensor=True).cpu()
                 
-        data['movie'].x = torch.cat([emb, genres], dim=-1)
+        data['movie'].num_nodes = len(movie_mapping)
 
         ages = torch.unsqueeze(torch.tensor(df_user["age"]), 1).to(torch.float)
 

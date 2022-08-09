@@ -8,10 +8,14 @@ import math
 torch.manual_seed(0)
 
 EPOCHS = 200
-MODEL_PATH = 'models/200-sageconv-id2'
+MODEL_PATH = 'models/200-sageconv-id4'
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 dataset = MovieGraph(root='../data')
 data = dataset[0].to(device)
+
+
+data['movie'].x = torch.eye(data['movie'].num_nodes, device=device)
+del data['movie'].num_nodes
 
 # Add a reverse ('movie', 'rev_rates', 'user') relation for message passing:
 data = T.ToUndirected()(data)
