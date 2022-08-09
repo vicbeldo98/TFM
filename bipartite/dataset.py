@@ -55,26 +55,35 @@ class MovieGraph(InMemoryDataset):
 
         # Map userId with indexes
         user_mapping = {idx: i for i, idx in enumerate(df_user.userId.unique())}
-    
-        genres = df_mov.iloc[:, -19:].to_numpy()
-        genres = torch.from_numpy(genres).to(torch.float)
 
-        # Add semantic information to the embeddings
         model = SentenceTransformer('sentence-transformers/all-distilroberta-v1')
+
+        for column in df_mov.columns[-19:]:
+            df_mov[column] = df_mov[column].map(lambda x: column + " " if x==1 else "")
+
+        movie_descriptions = []
+        df_mov["mov_genres"] = df_mov["unknown"] + df_mov["Action"] + df_mov["Adventure"] + df_mov["Animation"] + df_mov["Children's"] + \
+                               + df_mov["Comedy"] + df_mov["Crime"] + df_mov["Documentary"] + df_mov["Drama"] + df_mov["Fantasy"] + \
+                               df_mov["Film-Noir"] + df_mov["Horror"] + df_mov['Musical'] + df_mov['Mystery'] + df_mov['Romance'] + \
+                               df_mov['Sci-Fi'] + df_mov['Thriller'] + df_mov['War'] + df_mov['Western']
+        
+        for index, row in df_mov.iterrows():
+            movie_descriptions.append(row["movie title"] + " with categories: " + row["mov_genres"])
+        
+        print(movie_descriptions)
         with torch.no_grad():
-            emb = model.encode(df_mov['movie title'].values, show_progress_bar=True,
-                               convert_to_tensor=True).cpu()
-                
-        data['movie'].x = torch.cat([emb, genres], dim=-1)
+            movie_emb = model.encode(movie_descriptions, show_progress_bar=True, convert_to_tensor=True).cpu()
 
-        ages = torch.unsqueeze(torch.tensor(df_user["age"]), 1).to(torch.float)
+        data['movie'].x = movie_emb
 
-        gender_mapping = {"M" : 0, "F" : 1}
-        gender = torch.unsqueeze(torch.tensor([gender_mapping[i] for i in df_user["gender"]]), 1).to(torch.float)
+        gender_mapping = {"M" : "male", "F" : "female"}
+        user_descriptions = []
+        for index, row in df_user.iterrows():
+            user_descriptions.append("I am " + str(row["age"]) + ", " + gender_mapping[row["gender"]] + " and " + row["occupation"])
 
-        occupation = torch.tensor(np.matrix(pd.get_dummies(df_user["occupation"]))).to(torch.float)
-
-        user_emb = torch.cat([ages, gender, occupation], dim=-1)
+        print(user_descriptions)
+        with torch.no_grad():
+            user_emb = model.encode(user_descriptions, show_progress_bar=True, convert_to_tensor=True).cpu()
 
         data['user'].x = user_emb
 
