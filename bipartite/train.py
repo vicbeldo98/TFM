@@ -8,14 +8,10 @@ import math
 torch.manual_seed(0)
 
 EPOCHS = 200
-MODEL_PATH = 'models/sageconv'
+MODEL_PATH = 'models/200-sageconv-id2'
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 dataset = MovieGraph(root='../data')
 data = dataset[0].to(device)
-
-# Add user node features for message passing:
-data['user'].x = torch.eye(data['user'].num_nodes, device=device)
-del data['user'].num_nodes
 
 # Add a reverse ('movie', 'rev_rates', 'user') relation for message passing:
 data = T.ToUndirected()(data)
@@ -71,15 +67,10 @@ train_rmse_list = []
 val_rmse_list = []
 test_rsme_list = []
 
-BEST_MODEL_PATH = "models/best-sageconv"
-best_loss = math.inf
 
 def main():
     for epoch in range(1, EPOCHS+1):
-        loss = train()
-        if loss < best_loss:
-            torch.save(model.state_dict(), BEST_MODEL_PATH)
-
+        train()
         train_rmse = test(train_data)
         train_rmse_list.append(train_rmse)
         val_rmse = test(val_data)

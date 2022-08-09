@@ -2,6 +2,8 @@ from typing import Optional, Callable, List
 from torch_geometric.data import InMemoryDataset, HeteroData
 import torch
 import pandas as pd
+import numpy as np
+from sentence_transformers import SentenceTransformer
 
 
 class MovieGraph(InMemoryDataset):
@@ -58,7 +60,6 @@ class MovieGraph(InMemoryDataset):
         genres = torch.from_numpy(genres).to(torch.float)
 
         # Add semantic information to the embeddings
-        from sentence_transformers import SentenceTransformer
         model = SentenceTransformer('sentence-transformers/all-distilroberta-v1')
         with torch.no_grad():
             emb = model.encode(df_mov['movie title'].values, show_progress_bar=True,
@@ -66,7 +67,16 @@ class MovieGraph(InMemoryDataset):
                 
         data['movie'].x = torch.cat([emb, genres], dim=-1)
 
-        data['user'].num_nodes = len(user_mapping)
+        ages = torch.unsqueeze(torch.tensor(df_user["age"]), 1).to(torch.float)
+
+        gender_mapping = {"M" : 0, "F" : 1}
+        gender = torch.unsqueeze(torch.tensor([gender_mapping[i] for i in df_user["gender"]]), 1).to(torch.float)
+
+        occupation = torch.tensor(np.matrix(pd.get_dummies(df_user["occupation"]))).to(torch.float)
+
+        user_emb = torch.cat([ages, gender, occupation], dim=-1)
+
+        data['user'].x = user_emb
 
         # Edges definition
         src = [user_mapping[idx] for idx in df_ratings['userId']]
