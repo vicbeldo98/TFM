@@ -31,7 +31,7 @@ train_data, val_data, test_data = T.RandomLinkSplit(
     rev_edge_types=[('movie', 'rev_rates', 'user')],
 )(data)
 
-model = Model(data, hidden_channels=32).to(device)
+model = Model(data, hidden_channels=256).to(device)
 
 # Due to lazy initialization, we need to run one model step so the number of parameters can be inferred:
 with torch.no_grad():
@@ -60,7 +60,7 @@ def train():
 def test(part):
     model.eval()
     pred = model(part.x_dict, part.edge_index_dict, part['user', 'movie'].edge_label_index)
-    pred = torch.round(pred).clamp(min=0, max=5)
+    pred = torch.round(pred).clamp(min=1, max=5)
     target = part['user', 'movie'].edge_label.float()
     loss = F.mse_loss(pred, target)
     print(pred.unique(return_counts=True)[1])

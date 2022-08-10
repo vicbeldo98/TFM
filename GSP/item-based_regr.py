@@ -25,7 +25,7 @@ import math
 TARGET_MOVIES = [257]
 KNN = 5
 TRAIN_SPLIT = 0.85
-N_EPOCHS = 10
+N_EPOCHS = 100
 VERBOSE = False
 
 # Preprocess data
@@ -108,7 +108,7 @@ print("Number of testing signals: " + str(samples_test))
 
 
 class MyConv(MessagePassing):
-    def __init__(self, in_features=1, out_features=16, K=5):
+    def __init__(self, in_features=1, out_features=64, K=5):
         super().__init__(aggr='add')
         self.K = K
         self.in_features = in_features
@@ -178,7 +178,7 @@ class Encoder(torch.nn.Module):
 
 
 class Decoder(torch.nn.Module):
-    def __init__(self, out_features=16, dim_readout=1):
+    def __init__(self, out_features=64, dim_readout=1):
         super().__init__()
         self.lin1 = Linear(out_features, dim_readout)
         self.lin2 = Linear(N_movies, 1)
@@ -236,8 +236,9 @@ def train_step(x, y):
 def eval(x, y):
     model.eval()
     pred = model(x, edge_index, edge_weights)
-    pred = pred.clamp(min=1, max=5)
+    pred = torch.round(pred).clamp(min=1, max=5)
     rmse = movieMSELoss(pred, y)
+    print(pred.unique(return_counts=True)[1])
     return float(rmse)
 
 

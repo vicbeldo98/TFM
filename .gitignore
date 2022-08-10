@@ -1,7 +1,7 @@
 data/*
 __pycache__
-models/*
 pytorch_geometric
 GSP/data/*
 GSP/models/*
+bipartite/models/*
 GSP/precomputed_GSO/*
