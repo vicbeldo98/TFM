@@ -31,7 +31,7 @@ train_data, val_data, test_data = T.RandomLinkSplit(
     rev_edge_types=[('movie', 'rev_rates', 'user')],
 )(data)
 
-model = Model(data, hidden_channels=256).to(device)
+model = Model(data, hidden_channels=32).to(device)
 
 # Due to lazy initialization, we need to run one model step so the number of parameters can be inferred:
 with torch.no_grad():
