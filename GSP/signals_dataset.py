@@ -33,16 +33,3 @@ class SignalsDataset(Dataset):
         row = idx % 50
 
         return (xTrain[row, :], xTest[row, :])
-
-
-'''
-train_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/train")
-dataset = SignalsDataset(root_dir=train_dir)
-train_dataloader = DataLoader(dataset, batch_size=512, shuffle=False)
-
-
-print(next(iter(train_dataloader)))
-xTrain, xTest = next(iter(train_dataloader))
-print(f"Feature batch shape: {xTrain.size()}")
-print(f"Feature batch shape: {xTest.size()}")
-'''

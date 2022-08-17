@@ -38,7 +38,7 @@ with torch.no_grad():
     model.encoder(train_data.x_dict, train_data.edge_index_dict)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=10)
 
 
 def train():
@@ -86,7 +86,7 @@ def main():
 
         train_rmse = test(train_data)
         train_rmse_list.append(train_rmse)
-        val_rmse = test(val_data)
+        val_rmse = test(val_data, val=True)
         val_rmse_list.append(val_rmse)
         test_rmse = test(test_data)
         test_rsme_list.append(test_rmse)
