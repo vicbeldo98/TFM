@@ -38,6 +38,8 @@ with torch.no_grad():
     model.encoder(train_data.x_dict, train_data.edge_index_dict)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20)
+
 
 def train():
     model.train()
@@ -57,12 +59,14 @@ def train():
 
 
 @torch.no_grad()
-def test(part):
+def test(part, val=False):
     model.eval()
     pred = model(part.x_dict, part.edge_index_dict, part['user', 'movie'].edge_label_index)
     pred = torch.round(pred).clamp(min=1, max=5)
     target = part['user', 'movie'].edge_label.float()
     loss = F.mse_loss(pred, target)
+    if val:
+        scheduler.step(loss)
     print(pred.unique(return_counts=True)[1])
     rmse = loss.sqrt()
     return float(rmse)

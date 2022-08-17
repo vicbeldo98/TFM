@@ -1,13 +1,13 @@
 import torch
 from torch.nn import Linear
-from torch_geometric.nn import GATConv, to_hetero
+from torch_geometric.nn import SAGEConv, to_hetero
 
 
 class GNNEncoder(torch.nn.Module):
     def __init__(self, hidden_channels, out_channels):
         super().__init__()
-        self.conv1 = GATConv((-1, -1), hidden_channels, heads=8, add_self_loops=False)
-        self.conv2 = GATConv((-1, -1), out_channels*8, heads=4, add_self_loops=False)
+        self.conv1 = SAGEConv((-1, -1), hidden_channels)
+        self.conv2 = SAGEConv((-1, -1), out_channels)
 
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index).relu()
@@ -18,7 +18,7 @@ class GNNEncoder(torch.nn.Module):
 class EdgeDecoder(torch.nn.Module):
     def __init__(self, hidden_channels):
         super().__init__()
-        self.lin1 = Linear(64 * hidden_channels, hidden_channels)
+        self.lin1 = Linear(2*hidden_channels, hidden_channels)
         self.lin2 = Linear(hidden_channels, 1)
 
     def forward(self, z_dict, edge_label_index):
