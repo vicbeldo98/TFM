@@ -1,24 +1,29 @@
 # TFM
-Research on how to build a GNN for recommendation
+
+Research on how to build a recommendation system based on Graph Neural Networks using MovieLens
 
 # Environment
 
-conda create -n my-torch python=3.8 -y
+```bash
 
-conda activate my-torch
+    conda create -n my-torch python=3.8 -y
 
-conda install pip
+    conda activate my-torch
 
-conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
+    conda install pip
 
-pip install markupsafe==2.0.1
+    conda install pytorch torchvision torchaudio cudatoolkit=10.2 -c pytorch
 
-~/anaconda3/envs/my-torch/bin/pip install torch-geometric==2.0.3 (da errores pero funciona)
+    pip install markupsafe==2.0.1
 
-~/anaconda3/envs/my-torch/bin/pip install torch-sparse
+    ~/anaconda3/envs/my-torch/bin/pip install torch-geometric==2.0.3 (da errores pero funciona)
 
-~/anaconda3/envs/my-torch/bin/pip install torch-scatter
+    ~/anaconda3/envs/my-torch/bin/pip install torch-sparse
 
-conda install -c conda-forge huggingface_hub==0.2.1
+    ~/anaconda3/envs/my-torch/bin/pip install torch-scatter
 
-conda install -c conda-forge sentence-transformers
+    conda install -c conda-forge huggingface_hub==0.2.1
+
+    conda install -c conda-forge sentence-transformers
+
+```
