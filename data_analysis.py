@@ -1,10 +1,11 @@
 import pandas as pd
 
 df_ratings = pd.read_csv("data/raw/ml-100K/ratings.csv")
+print(df_ratings[df_ratings.movieId == 257]["rating"].mean())
 
 # Borrar las películas que han aparecido menos de 5 veces
 
-n_reviews_per_movie = df_ratings.groupby("movieId")["userId"].count()
+'''n_reviews_per_movie = df_ratings.groupby("movieId")["userId"].count()
 
 new_movies = []
 
@@ -57,7 +58,7 @@ nusers = df_ratings["userId"].nunique()
 nmovies = df_ratings["movieId"].nunique()
 print(f"Number of total users: df_ratings: {nusers}")
 print(f"Number of total movies: {nmovies}")
-
+'''
 
 
 

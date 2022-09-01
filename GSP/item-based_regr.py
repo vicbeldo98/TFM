@@ -60,7 +60,7 @@ N_movies = len(movie_mapping.keys())
 # Construct matrix users x movies with ratings as entries
 X = np.zeros((N_users, N_movies))
 for idx, row in df_ratings.iterrows():
-    X[int(row["userId"]), int(row["movieId"])] = row["rating"] #- 1.0) / 4.0
+    X[int(row["userId"]), int(row["movieId"])] = int(row["rating"]) #- 1.0) / 4.0
 
 GSO_filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "precomputed_GSO/gso.pkl")
 train_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "data/train")
@@ -108,7 +108,7 @@ print("Number of testing signals: " + str(samples_test))
 
 
 class MyConv(MessagePassing):
-    def __init__(self, in_features=1, out_features=64, K=5):
+    def __init__(self, in_features=1, out_features=32, K=5):
         super().__init__(aggr='add')
         self.K = K
         self.in_features = in_features
@@ -178,7 +178,7 @@ class Encoder(torch.nn.Module):
 
 
 class Decoder(torch.nn.Module):
-    def __init__(self, out_features=64, dim_readout=1):
+    def __init__(self, out_features=32, dim_readout=1):
         super().__init__()
         self.lin1 = Linear(out_features, dim_readout)
         self.lin2 = Linear(N_movies, 1)
@@ -199,7 +199,6 @@ class Model(torch.nn.Module):
     def forward(self, x, edge_index_dict, edge_label_index):
         x = self.encoder(x, edge_index_dict, edge_label_index)
         x = self.decoder(x)
-        # z_dict = z_dict.clone().detach().requires_grad_(True)
         if VERBOSE:
             print("After linear layer and reshape:")
             print(x.shape)
@@ -208,6 +207,11 @@ class Model(torch.nn.Module):
 
 
 model = Model()
+
+def weighted_mse_loss(pred, target, weight):
+    target = target.to(torch.int64)
+    weight = weight[target].to(pred.dtype)
+    return (weight * (pred - target.to(pred.dtype)).pow(2)).mean()
 
 with torch.no_grad():
     model.encoder(next(iter(train_dataloader))[0].float().t(), edge_index, edge_weights)
@@ -222,10 +226,11 @@ if VERBOSE:
 
 def train_step(x, y):
     model.train()
-    
     pred = model(x, edge_index, edge_weights)
     target = y
-    loss = movieMSELoss(pred, target)
+    weight = torch.bincount(target.to(torch.int64).squeeze(-1))
+    weight = weight.max() / weight
+    loss = weighted_mse_loss(pred, target, weight)
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
@@ -238,6 +243,7 @@ def eval(x, y):
     pred = model(x, edge_index, edge_weights)
     pred = torch.round(pred).clamp(min=1, max=5)
     rmse = movieMSELoss(pred, y)
+    print(pred.unique(return_counts=True)[0])
     print(pred.unique(return_counts=True)[1])
     return float(rmse)
 
@@ -301,6 +307,6 @@ plt.plot(x_axis, test_history, label="Test RMSE")
 plt.axis([1, N_EPOCHS, 0, 10])
 plt.xlabel("Epochs")
 plt.ylabel("RMSE")
-plt.title("Evolution of RMSE in training for Men in Black (1997)")
+plt.title("Evolution of RMSE in training for Scream")
 plt.legend()
 plt.show()
